@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "start": "node index.js" // or "nodemon index.js" if using nodemon
+  }
+}
+{
   "name": "nodejs",
   "version": "1.0.0",
   "description": "",
