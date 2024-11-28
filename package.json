@@ -1,14 +1,10 @@
 {
-  "scripts": {
-    "yarn start": "node index.js" // or "nodemon index.js" if using nodemon
-  }
-}
-{
   "name": "nodejs",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js", 
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
