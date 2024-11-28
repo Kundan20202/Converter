@@ -1,0 +1,7 @@
+CREATE TABLE form_data (
+    id SERIAL PRIMARY KEY,
+    app_name VARCHAR(255) NOT NULL,
+    website VARCHAR(255) NOT NULL,
+    app_type VARCHAR(50) NOT NULL,
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
