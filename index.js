@@ -10,6 +10,9 @@ app.use(cors());
 
 // Middleware to parse JSON body
 app.use(bodyParser.json());
+app.get('/', (req, res) => {
+  res.send('Backend is working!');
+});
 
 // Handle POST request for form submission
 app.post('/submit', (req, res) => {
