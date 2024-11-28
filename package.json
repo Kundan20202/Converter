@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "start": "node index.js" // or "nodemon index.js" if using nodemon
+    "yarn start": "node index.js" // or "nodemon index.js" if using nodemon
   }
 }
 {
