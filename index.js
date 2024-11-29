@@ -14,6 +14,17 @@ app.get('/', (req, res) => {
   res.send('Backend is working!');
 });
 
+app.get('/test-db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.status(200).send(`Database connection successful: ${result.rows[0].now}`);
+  } catch (err) {
+    console.error('Database connection error:', err);
+    res.status(500).send('Database connection failed');
+  }
+});
+
+
 // Handle POST request for form submission
 app.post('/submit', (req, res) => {
   const { appName, website, appType } = req.body;
