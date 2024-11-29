@@ -1,4 +1,3 @@
-CREATE DATABASE web_to_app_db;
 
 CREATE TABLE submissions (
   id SERIAL PRIMARY KEY,
