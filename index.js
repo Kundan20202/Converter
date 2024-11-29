@@ -28,6 +28,16 @@ pool.connect((err) => {
   }
 });
 
+app.get('/test-db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.status(200).send(`Database connection successful: ${result.rows[0].now}`);
+  } catch (err) {
+    console.error('Database connection error:', err);
+    res.status(500).send('Database connection failed');
+  }
+});
+
 // Routes
 
 // 1. Submit form data
