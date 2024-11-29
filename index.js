@@ -2,10 +2,25 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { Pool } = require('pg');
-require('dotenv').config();
+const dotenv = require('dotenv');
+const winston = require('winston'); // Logging library
+
+dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5000;
+
+// Logger setup
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+  ],
+});
 
 // Middleware
 app.use(cors());
@@ -22,9 +37,35 @@ const pool = new Pool({
 // Test database connection
 pool.connect((err) => {
   if (err) {
-    console.error('Database connection error:', err.stack);
+    logger.error('Database connection error:', err.stack);
   } else {
-    console.log('Connected to the database!');
+    logger.info('Connected to the database!');
+  }
+});
+
+// Routes
+
+// 1. Submit form data
+app.post('/submit', async (req, res, next) => {
+  const { app_name, website, app_type } = req.body;
+
+  // Validate input
+  if (!app_name || !website || !app_type) {
+    logger.warn('Validation failed for /submit route');
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO submissions (app_name, website, app_type) 
+       VALUES ($1, $2, $3) RETURNING *`,
+      [app_name, website, app_type]
+    );
+    logger.info('Data inserted:', result.rows[0]);
+    res.status(201).json({ message: 'Form submitted successfully', data: result.rows[0] });
+  } catch (error) {
+    logger.error('Error saving data:', error);
+    next(error); // Pass error to centralized handler
   }
 });
 
@@ -38,39 +79,15 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-// Routes
-
-// 1. Submit form data
-app.post('/submit', async (req, res) => {
-  const { app_name, website, app_type } = req.body;
-
-  // Validate input
-  if (!app_name || !website || !app_type) {
-    return res.status(400).json({ message: 'All fields are required' });
-  }
-
-  try {
-    const result = await pool.query(
-      `INSERT INTO submissions (app_name, website, app_type) 
-       VALUES ($1, $2, $3) RETURNING *`,
-      [app_name, website, app_type]
-    );
-    console.log('Data inserted:', result.rows[0]);
-    res.status(201).json({ message: 'Form submitted successfully', data: result.rows[0] });
-  } catch (error) {
-    console.error('Error saving data:', error);
-    res.status(500).json({ message: 'Failed to save data' });
-  }
-});
-
 // 2. Retrieve submissions
-app.get('/submissions', async (req, res) => {
+app.get('/submissions', async (req, res, next) => {
   try {
     const result = await pool.query('SELECT * FROM submissions ORDER BY created_at DESC');
+    logger.info('Fetched submissions:', result.rows);
     res.status(200).json(result.rows);
   } catch (error) {
-    console.error('Error fetching submissions:', error);
-    res.status(500).json({ message: 'Failed to fetch data' });
+    logger.error('Error fetching submissions:', error);
+    next(error);
   }
 });
 
@@ -79,7 +96,13 @@ app.get('/', (req, res) => {
   res.send('Backend is working!');
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  logger.error('Unhandled error:', err.message);
+  res.status(500).json({ message: 'Internal Server Error' });
+});
+
 // Start server
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+  logger.info(`Server running on http://localhost:${port}`);
 });
