@@ -33,6 +33,21 @@ const pool = new Pool({
     rejectUnauthorized: false, // Use this only if your host requires SSL
   },
 });
+// Creating Table
+const createTableQuery = `
+  CREATE TABLE IF NOT EXISTS submissions (
+    id SERIAL PRIMARY KEY,
+    app_name VARCHAR(255) NOT NULL,
+    website VARCHAR(255) NOT NULL,
+    app_type VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`;
+
+pool.query(createTableQuery)
+  .then(() => console.log("Table 'submissions' is ready"))
+  .catch((err) => console.error("Error creating table:", err.stack));
+
 
 // Test database connection
 pool.connect((err) => {
