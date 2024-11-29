@@ -1,19 +1,22 @@
 const express = require('express');
-const cors = require('cors');
 const bodyParser = require('body-parser');
+const { Pool } = require('pg');
 
 const app = express();
-const port = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
-// Enable CORS
-app.use(cors());
-
-// Middleware to parse JSON body
+// Middleware
 app.use(bodyParser.json());
-app.get('/', (req, res) => {
-  res.send('Backend is working!');
+
+// Database connection
+const pool = new Pool({
+  connectionString: 'postgresql://web_to_app_db_user:qFqUzCUmLZ8KHYZmCdECNnUfjtV82pdP@dpg-ct4buaggph6c73c6fatg-a/web_to_app_db',
+  ssl: {
+    rejectUnauthorized: false, // Required for Render
+  },
 });
 
+// Test route
 app.get('/test-db', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
@@ -24,24 +27,27 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
+// Form submission route
+app.post('/submit', async (req, res) => {
+  try {
+    const { app_name, website, app_type } = req.body;
 
-// Handle POST request for form submission
-app.post('/submit', (req, res) => {
-  const { appName, website, appType } = req.body;
+    const query = `
+      INSERT INTO submissions (app_name, website, app_type)
+      VALUES ($1, $2, $3)
+      RETURNING *;
+    `;
+    const values = [app_name, website, app_type];
 
-  // Validation - Ensure all fields are provided
-  if (!appName || !website || !appType) {
-    return res.status(400).json({ message: 'All fields are required' });
+    const result = await pool.query(query, values);
+    res.status(200).json({ message: 'Form submitted successfully', data: result.rows[0] });
+  } catch (err) {
+    console.error('Database query error:', err);
+    res.status(500).json({ message: 'Error saving data to database' });
   }
-
-  // Log the received data (you can process/store it as needed)
-  console.log('Received form data:', req.body);
-
-  // Respond with success message
-  return res.status(200).json({ message: 'Form submitted successfully!' });
 });
 
-// Start the server
-app.listen(port, () => {
-  console.log(`Backend running at http://localhost:${port}`);
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
