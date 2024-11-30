@@ -8,10 +8,10 @@ const port = 3000;
 
 // Database configuration
 const pool = new Pool({
-  user: 'your_db_user',
-  host: 'your_db_host',
-  database: 'your_db_name',
-  password: 'your_db_password',
+  user: 'web_to_app_db_user',
+  host: 'dpg-ct4buaggph6c73c6fatg-a',
+  database: 'web_to_app_db',
+  password: 'qFqUzCUmLZ8KHYZmCdECNnUfjtV82pdP',
   port: 5432, // Default Postgres port
 });
 
