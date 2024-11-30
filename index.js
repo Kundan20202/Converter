@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { Pool } = require('pg');
-const winston = require('winston');
+const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
 const app = express();
@@ -12,58 +12,70 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// Logger setup
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: 'combined.log' }),
-  ],
-});
-
 // Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
+// Test database connection
 pool.connect((err) => {
   if (err) {
-    logger.error('Database connection error:', err.stack);
+    console.error('Database connection error:', err.stack);
   } else {
-    logger.info('Connected to the database!');
+    console.log('Connected to the database!');
   }
 });
 
-// 1. Submit form data
-app.post('/submit', async (req, res) => {
-  const { app_name, website, app_type } = req.body;
+// Generate download links
+const generateLinks = (appId) => {
+  const baseURL = 'https://example-apps.s3.amazonaws.com'; // Replace with your storage URL
+  return {
+    android: `${baseURL}/${appId}/android.apk`,
+    ios: `${baseURL}/${appId}/ios.ipa`,
+  };
+};
 
-  if (!app_name || !website || !app_type) {
+// Routes
+
+// Submit form data
+app.post('/submit', async (req, res) => {
+  const { appName, website, appType } = req.body;
+
+  if (!appName || !website || !appType) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
   try {
+    const appId = uuidv4(); // Unique identifier for the app
+    const links = generateLinks(appId);
+
     const result = await pool.query(
-      `INSERT INTO submissions (app_name, website, app_type) VALUES ($1, $2, $3) RETURNING *`,
-      [app_name, website, app_type]
+      `INSERT INTO submissions (app_name, website, app_type, app_id, android_link, ios_link) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [appName, website, appType, appId, links.android, links.ios]
     );
-    logger.info('Data inserted:', result.rows[0]);
-    res.status(201).json({ message: 'Form submitted successfully', data: result.rows[0] });
+
+    console.log('Data inserted:', result.rows[0]);
+    res.status(201).json({
+      message: 'Form submitted successfully',
+      links,
+    });
   } catch (error) {
-    logger.error('Error saving data:', error);
+    console.error('Error saving data:', error);
     res.status(500).json({ message: 'Failed to save data' });
   }
 });
 
-// 2. Retrieve submissions
+// Retrieve submissions
 app.get('/submissions', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM submissions ORDER BY created_at DESC');
     res.status(200).json(result.rows);
   } catch (error) {
-    logger.error('Error fetching submissions:', error);
+    console.error('Error fetching submissions:', error);
     res.status(500).json({ message: 'Failed to fetch data' });
   }
 });
@@ -75,5 +87,5 @@ app.get('/', (req, res) => {
 
 // Start server
 app.listen(port, () => {
-  logger.info(`Server running on http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
 });
