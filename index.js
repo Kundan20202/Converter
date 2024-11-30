@@ -2,65 +2,78 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { Pool } = require('pg');
+const winston = require('winston');
+require('dotenv').config();
 
 const app = express();
-const port = 3000;
-
-// Database configuration
-const pool = new Pool({
-  user: 'web_to_app_db_user',
-  host: 'dpg-ct4buaggph6c73c6fatg-a',
-  database: 'web_to_app_db',
-  password: 'qFqUzCUmLZ8KHYZmCdECNnUfjtV82pdP',
-  port: 5432, // Default Postgres port
-});
+const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
+// Logger setup
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'combined.log' }),
+  ],
+});
 
-// Fetch all form submissions
+// Database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+pool.connect((err) => {
+  if (err) {
+    logger.error('Database connection error:', err.stack);
+  } else {
+    logger.info('Connected to the database!');
+  }
+});
+
+// 1. Submit form data
+app.post('/submit', async (req, res) => {
+  const { app_name, website, app_type } = req.body;
+
+  if (!app_name || !website || !app_type) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO submissions (app_name, website, app_type) VALUES ($1, $2, $3) RETURNING *`,
+      [app_name, website, app_type]
+    );
+    logger.info('Data inserted:', result.rows[0]);
+    res.status(201).json({ message: 'Form submitted successfully', data: result.rows[0] });
+  } catch (error) {
+    logger.error('Error saving data:', error);
+    res.status(500).json({ message: 'Failed to save data' });
+  }
+});
+
+// 2. Retrieve submissions
 app.get('/submissions', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM submissions ORDER BY id DESC');
-    res.status(200).send(result.rows);
+    const result = await pool.query('SELECT * FROM submissions ORDER BY created_at DESC');
+    res.status(200).json(result.rows);
   } catch (error) {
-    console.error('Error fetching submissions:', error);
-    res.status(500).send({ error: 'Error fetching submissions.' });
+    logger.error('Error fetching submissions:', error);
+    res.status(500).json({ message: 'Failed to fetch data' });
   }
 });
 
-// Store form submissions
-app.post('/submit', async (req, res) => {
-  const { appName, website, appType } = req.body;
-
-  try {
-    const query = 'INSERT INTO submissions (app_name, website, app_type) VALUES ($1, $2, $3)';
-    await pool.query(query, [appName, website, appType]);
-    res.status(200).send({ message: 'Form submitted successfully!' });
-  } catch (error) {
-    console.error('Error saving submission:', error);
-    res.status(500).send({ error: 'Error saving submission.' });
-  }
-});
-
-// Provide website URL for Expo app
-app.get('/get-website', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT website FROM submissions ORDER BY id DESC LIMIT 1');
-    if (result.rows.length > 0) {
-      res.status(200).send({ website: result.rows[0].website });
-    } else {
-      res.status(404).send({ error: 'No website found.' });
-    }
-  } catch (error) {
-    console.error('Error fetching website:', error);
-    res.status(500).send({ error: 'Error fetching website.' });
-  }
+// Root endpoint for testing
+app.get('/', (req, res) => {
+  res.send('Backend is working!');
 });
 
 // Start server
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  logger.info(`Server running on http://localhost:${port}`);
 });
