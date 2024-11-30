@@ -19,6 +19,18 @@ const pool = new Pool({
 app.use(cors());
 app.use(bodyParser.json());
 
+
+// Fetch all form submissions
+app.get('/submissions', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM submissions ORDER BY id DESC');
+    res.status(200).send(result.rows);
+  } catch (error) {
+    console.error('Error fetching submissions:', error);
+    res.status(500).send({ error: 'Error fetching submissions.' });
+  }
+});
+
 // Store form submissions
 app.post('/submit', async (req, res) => {
   const { appName, website, appType } = req.body;
