@@ -1,81 +1,90 @@
-require('dotenv').config(); // Load environment variables
+// Consolidated backend code for Render's PostgreSQL database and AWS S3 integration.
+
 const express = require('express');
-const bodyParser = require('body-parser');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3'); // AWS SDK v3 S3 client
+const { Pool } = require('pg');
+const cors = require('cors');
+const AWS = require('aws-sdk');
+require('dotenv').config();
 
-// Express app setup
 const app = express();
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(cors());
 
-// Multer setup for file uploads
-const upload = multer({ dest: 'uploads/' }); // Temporary folder for uploads
-
-// Initialize AWS S3 client
-const s3 = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
+// PostgreSQL configuration
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // For secure connections in Render
 });
 
-// Endpoint to handle form submissions
-app.post('/submit', async (req, res) => {
-  const { appName, website, appType } = req.body;
+// AWS S3 configuration
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+});
+
+// Endpoint to test DB connection
+app.get('/db-test', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.status(200).send(`Database connection is active. Server time: ${result.rows[0].now}`);
+  } catch (err) {
+    console.error('Database connection test failed:', err);
+    res.status(500).send('Database connection test failed.');
+  }
+});
+
+// Endpoint to view all submissions
+app.get('/submission', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM submissions ORDER BY created_at DESC');
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Error fetching submissions:', err);
+    res.status(500).send('Error fetching submissions.');
+  }
+});
+
+// Endpoint to handle form submission and generate app link
+app.post('/submit-form', async (req, res) => {
+  const { name, website, appName } = req.body;
+
+  if (!name || !website || !appName) {
+    return res.status(400).send('All fields are required.');
+  }
 
   try {
-    // **Simulating app generation process**
-    const generatedFilePath = path.join(__dirname, 'generatedApps', `${appName}.apk`); // Dummy file path
-    fs.writeFileSync(generatedFilePath, 'Dummy app content'); // Create a dummy file for testing
-
-    // Upload to S3
-    const fileKey = `apps/${appName}-${Date.now()}.apk`; // Dynamic S3 file name
-    const fileContent = fs.readFileSync(generatedFilePath);
+    // Generate an app package (mocking with placeholder for now)
+    const appPackageContent = `App for ${appName} generated from ${website}`;
+    const key = `${Date.now()}-${appName}.txt`;
 
     const params = {
       Bucket: process.env.AWS_BUCKET_NAME,
-      Key: fileKey, // File name in S3
-      Body: fileContent,
-      ContentType: 'application/octet-stream',
+      Key: key,
+      Body: appPackageContent,
     };
 
-    // Use the PutObjectCommand to upload
-    const uploadCommand = new PutObjectCommand(params);
-    const uploadResult = await s3.send(uploadCommand);
+    const uploadResponse = await s3.upload(params).promise();
+    const appLink = uploadResponse.Location;
 
-    // Construct file URL
-    const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+    // Save submission to database
+    const query = `
+      INSERT INTO submissions (name, website, app_name, app_link, created_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      RETURNING *;
+    `;
+    const values = [name, website, appName, appLink];
+    const result = await pool.query(query, values);
 
-    // Send back the file URL to the user
-    res.status(200).json({
-      message: 'App generated and uploaded successfully',
-      appLink: fileUrl,
-    });
-
-    // Clean up the temporary file
-    fs.unlinkSync(generatedFilePath);
-  } catch (error) {
-    console.error('Error handling submission:', error);
-    res.status(500).json({ message: 'An error occurred', error });
+    res.status(201).json({ message: 'Submission successful!', appLink: result.rows[0].app_link });
+  } catch (err) {
+    console.error('Error handling form submission:', err);
+    res.status(500).send('Failed to handle submission. Please try again.');
   }
 });
 
-// Endpoint to view submissions (assuming it's reading from memory or storage)
-app.get('/submissions', async (req, res) => {
-  try {
-    // Logic to fetch submission details
-    const submissions = []; // Replace with actual data retrieval logic
-    res.status(200).json({ submissions });
-  } catch (error) {
-    console.error('Error fetching submissions:', error);
-    res.status(500).json({ message: 'Failed to fetch submissions', error });
-  }
+// Starting the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
-
-// Server setup
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
