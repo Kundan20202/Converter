@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const AWS = require('aws-sdk');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3'); // AWS SDK v3 S3 client
 
 // Express app setup
 const app = express();
@@ -14,14 +14,14 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Multer setup for file uploads
 const upload = multer({ dest: 'uploads/' }); // Temporary folder for uploads
 
-// AWS Configuration
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION, // Replace with your S3 bucket region
+// Initialize AWS S3 client
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
 });
-
-const s3 = new AWS.S3();
 
 // Endpoint to handle form submissions
 app.post('/submit', async (req, res) => {
@@ -37,18 +37,23 @@ app.post('/submit', async (req, res) => {
     const fileContent = fs.readFileSync(generatedFilePath);
 
     const params = {
-      Bucket: process.env.AWS_BUCKET_NAME, // S3 bucket name from .env
+      Bucket: process.env.AWS_BUCKET_NAME,
       Key: fileKey, // File name in S3
       Body: fileContent,
       ContentType: 'application/octet-stream',
     };
 
-    const uploadResult = await s3.upload(params).promise();
+    // Use the PutObjectCommand to upload
+    const uploadCommand = new PutObjectCommand(params);
+    const uploadResult = await s3.send(uploadCommand);
+
+    // Construct file URL
+    const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
 
     // Send back the file URL to the user
     res.status(200).json({
       message: 'App generated and uploaded successfully',
-      appLink: uploadResult.Location,
+      appLink: fileUrl,
     });
 
     // Clean up the temporary file
