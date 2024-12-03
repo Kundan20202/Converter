@@ -1,4 +1,4 @@
-// Consolidated backend code for Render's PostgreSQL database and AWS S3 integration.
+
 
 const express = require('express');
 const { Pool } = require('pg');
