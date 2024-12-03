@@ -3,7 +3,7 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
-const AWS = require('aws-sdk');
+const { S3Client } = require('@aws-sdk/client-s3');
 require('dotenv').config();
 
 const app = express();
