@@ -6,16 +6,15 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { Pool } from 'pg';
 
 // Load environment variables
 dotenv.config();
 
+const { Pool } = pkg; // Destructure from CommonJS import
 
-
-
+// PostgreSQL setup
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL,
 });
 
 const createTableQuery = `
@@ -36,12 +35,6 @@ const createTableQuery = `
         console.error("Error ensuring table creation:", err);
     }
 })();
-
-// PostgreSQL setup
-const { Pool } = pkg; // Destructure from CommonJS import
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
 
 // AWS S3 setup
 const s3 = new S3Client({
