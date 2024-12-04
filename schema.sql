@@ -1,7 +1,10 @@
-CREATE TABLE apps (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    app_url TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-);
+const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS apps (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        website VARCHAR(255), -- Added website column
+        app_name VARCHAR(255) NOT NULL, -- Changed email to app_name as per endpoint
+        app_url TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+`;
