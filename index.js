@@ -1,91 +1,90 @@
 const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
 const { Pool } = require('pg');
-const { v4: uuidv4 } = require('uuid');
+const AWS = require('aws-sdk');
+const multer = require('multer');
+const path = require('path');
 require('dotenv').config();
 
+// Create express app
 const app = express();
-const port = process.env.PORT || 5000;
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-
-// Database connection
+// Set up PostgreSQL connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
 });
 
-// Test database connection
-pool.connect((err) => {
-  if (err) {
-    console.error('Database connection error:', err.stack);
-  } else {
-    console.log('Connected to the database!');
-  }
+// Set up AWS S3
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
 });
 
-// Generate download links
-const generateLinks = (appId) => {
-  const baseURL = 'https://example-apps.s3.amazonaws.com'; // Replace with your storage URL
-  return {
-    android: `${baseURL}/${appId}/android.apk`,
-    ios: `${baseURL}/${appId}/ios.ipa`,
-  };
-};
+const s3 = new AWS.S3();
 
-// Routes
+// Set up multer for file handling (assume we are uploading a zip file)
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
-// Submit form data
-app.post('/submit', async (req, res) => {
-  const { appName, website, appType } = req.body;
+// Endpoint to submit form and upload to S3
+app.post('/submit', upload.single('appFile'), async (req, res) => {
+  const { appName, website, email } = req.body;
 
-  if (!appName || !website || !appType) {
-    return res.status(400).json({ message: 'All fields are required' });
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
   }
 
   try {
-    const appId = uuidv4(); // Unique identifier for the app
-    const links = generateLinks(appId);
+    // Upload file to AWS S3
+    const fileName = `${appName}-${Date.now()}.zip`; // Generate a unique name
+    const uploadParams = {
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: fileName,
+      Body: req.file.buffer,
+      ContentType: 'application/zip',
+      ACL: 'public-read',
+    };
 
-    const result = await pool.query(
-      `INSERT INTO submissions (app_name, website, app_type, app_id, android_link, ios_link) 
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [appName, website, appType, appId, links.android, links.ios]
-    );
+    const uploadResult = await s3.upload(uploadParams).promise();
 
-    console.log('Data inserted:', result.rows[0]);
-    res.status(201).json({
-      message: 'Form submitted successfully',
-      links,
-    });
+    // Save submission to PostgreSQL
+    const client = await pool.connect();
+    try {
+      const query = 'INSERT INTO submissions(app_name, website, email, app_link) VALUES($1, $2, $3, $4) RETURNING *';
+      const values = [appName, website, email, uploadResult.Location];
+
+      const result = await client.query(query, values);
+      client.release();
+
+      // Send back the response with the app link
+      res.json({ message: 'App uploaded successfully', downloadLink: uploadResult.Location });
+    } catch (error) {
+      client.release();
+      console.error('Error saving to database:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
   } catch (error) {
-    console.error('Error saving data:', error);
-    res.status(500).json({ message: 'Failed to save data' });
+    console.error('Error uploading file to S3:', error);
+    res.status(500).json({ error: 'Failed to upload file to S3' });
   }
 });
 
-// Retrieve submissions
+// Endpoint to check all submissions (for testing)
 app.get('/submissions', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM submissions ORDER BY created_at DESC');
-    res.status(200).json(result.rows);
+    const client = await pool.connect();
+    const result = await client.query('SELECT * FROM submissions');
+    client.release();
+    res.json(result.rows);
   } catch (error) {
     console.error('Error fetching submissions:', error);
-    res.status(500).json({ message: 'Failed to fetch data' });
+    res.status(500).json({ error: 'Failed to fetch submissions' });
   }
 });
 
-// Root endpoint for testing
-app.get('/', (req, res) => {
-  res.send('Backend is working!');
-});
-
-// Start server
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+// Listen on the specified port
+app.listen(process.env.PORT, () => {
+  console.log(`Server is running on port ${process.env.PORT}`);
 });
