@@ -1,17 +1,22 @@
 // Import necessary modules
-const express = require('express');
-const dotenv = require('dotenv');
-const { Pool } = require('pg');  // Using 'require' for PostgreSQL module
-const aws = require('@aws-sdk/client-s3');
-const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
+import express from 'express';
+import dotenv from 'dotenv';
+import { Pool } from 'pg';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Load environment variables
 dotenv.config();
 
+// Get the directory name for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Initialize AWS S3 client
-const s3 = new aws.S3({
+const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -50,23 +55,25 @@ app.post('/submit-form', upload.single('file'), async (req, res) => {
       const fileName = `${Date.now()}_${req.file.originalname}`;
 
       // Upload to S3 bucket
-      const uploadResult = await s3.putObject({
-        Bucket: process.env.AWS_BUCKET_NAME,
-        Key: fileName,
-        Body: fileContent,
-        ContentType: req.file.mimetype,
-      });
+      const uploadResult = await s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: fileName,
+          Body: fileContent,
+          ContentType: req.file.mimetype,
+        })
+      );
 
       fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
-      fs.unlinkSync(req.file.path);  // Remove the file from local storage after upload
+      fs.unlinkSync(req.file.path); // Remove the file from local storage after upload
     }
 
     // Respond with the submitted data and file URL
     res.json({
       success: true,
       message: 'Form submitted successfully',
-      data: result.rows[0],  // Return inserted data
-      fileUrl: fileUrl,  // Return file URL if uploaded
+      data: result.rows[0], // Return inserted data
+      fileUrl: fileUrl, // Return file URL if uploaded
     });
   } catch (err) {
     console.error(err);
