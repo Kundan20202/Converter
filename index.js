@@ -6,9 +6,36 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Pool } from 'pg';
 
 // Load environment variables
 dotenv.config();
+
+
+
+
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+});
+
+const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS apps (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        app_url TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+`;
+
+(async () => {
+    try {
+        await pool.query(createTableQuery);
+        console.log("Table 'apps' ensured to exist.");
+    } catch (err) {
+        console.error("Error ensuring table creation:", err);
+    }
+})();
 
 // PostgreSQL setup
 const { Pool } = pkg; // Destructure from CommonJS import
