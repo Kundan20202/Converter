@@ -1,90 +1,95 @@
-const express = require('express');
-const { Pool } = require('pg');
-const AWS = require('aws-sdk');
-const multer = require('multer');
-const path = require('path');
-require('dotenv').config();
+// Import required modules
+import express from 'express';
+import dotenv from 'dotenv';
+import multer from 'multer';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
+import { Pool } from 'pg';
 
-// Create express app
+// Load environment variables
+dotenv.config();
+
+// Initialize the Express app
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const port = process.env.PORT || 5000;
 
-// Set up PostgreSQL connection
+// Initialize PostgreSQL pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// Set up AWS S3
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+// Initialize S3 client
+const s3 = new S3Client({
   region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
 });
 
-const s3 = new AWS.S3();
-
-// Set up multer for file handling (assume we are uploading a zip file)
+// Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Endpoint to submit form and upload to S3
-app.post('/submit', upload.single('appFile'), async (req, res) => {
-  const { appName, website, email } = req.body;
-
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
-
+// POST route to handle form submission
+app.post('/submit', upload.single('file'), async (req, res) => {
   try {
-    // Upload file to AWS S3
-    const fileName = `${appName}-${Date.now()}.zip`; // Generate a unique name
+    // Extract form data
+    const { appName, website, appType } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    // Generate unique file name using UUID
+    const fileName = `${uuidv4()}-${req.file.originalname}`;
+
+    // Upload file to S3
     const uploadParams = {
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: fileName,
       Body: req.file.buffer,
-      ContentType: 'application/zip',
-      ACL: 'public-read',
+      ContentType: req.file.mimetype,
     };
 
-    const uploadResult = await s3.upload(uploadParams).promise();
+    // Upload the file to S3
+    const command = new PutObjectCommand(uploadParams);
+    await s3.send(command);
 
-    // Save submission to PostgreSQL
+    // Store submission info in the database
     const client = await pool.connect();
-    try {
-      const query = 'INSERT INTO submissions(app_name, website, email, app_link) VALUES($1, $2, $3, $4) RETURNING *';
-      const values = [appName, website, email, uploadResult.Location];
+    await client.query(
+      'INSERT INTO submissions(app_name, website, app_type, s3_file_url) VALUES($1, $2, $3, $4)',
+      [appName, website, appType, `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`]
+    );
+    client.release();
 
-      const result = await client.query(query, values);
-      client.release();
-
-      // Send back the response with the app link
-      res.json({ message: 'App uploaded successfully', downloadLink: uploadResult.Location });
-    } catch (error) {
-      client.release();
-      console.error('Error saving to database:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
+    // Respond with success
+    return res.status(200).json({
+      message: 'Form submitted successfully!',
+      appUrl: `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`,
+    });
   } catch (error) {
-    console.error('Error uploading file to S3:', error);
-    res.status(500).json({ error: 'Failed to upload file to S3' });
+    console.error('Error submitting form:', error);
+    return res.status(500).json({ error: 'Error submitting form. Please try again later.' });
   }
 });
 
-// Endpoint to check all submissions (for testing)
-app.get('/submissions', async (req, res) => {
+// Route to view submissions
+app.get('/submission', async (req, res) => {
   try {
     const client = await pool.connect();
     const result = await client.query('SELECT * FROM submissions');
     client.release();
-    res.json(result.rows);
+
+    res.status(200).json(result.rows);
   } catch (error) {
     console.error('Error fetching submissions:', error);
-    res.status(500).json({ error: 'Failed to fetch submissions' });
+    res.status(500).json({ error: 'Error fetching submissions.' });
   }
 });
 
-// Listen on the specified port
-app.listen(process.env.PORT, () => {
-  console.log(`Server is running on port ${process.env.PORT}`);
+// Start the server
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
