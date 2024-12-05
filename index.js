@@ -38,6 +38,17 @@ const createTableQuery = `
     }
 })();
 
+
+app.get('/db-test', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT column_name FROM information_schema.columns WHERE table_name = $1', ['apps']);
+    res.json({ success: true, columns: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Database connection error', error: err.message });
+  }
+});
+
 // AWS S3 setup
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
