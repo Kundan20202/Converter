@@ -30,24 +30,13 @@ const createTableQuery = `
 `;
 
 (async () => {
-    try {
-        await pool.query(createTableQuery);
-        console.log("Table 'apps' ensured to exist.");
-    } catch (err) {
-        console.error("Error ensuring table creation:", err);
-    }
-})();
-
-
-app.get('/db-test', async (req, res) => {
   try {
-    const result = await pool.query('SELECT column_name FROM information_schema.columns WHERE table_name = $1', ['apps']);
-    res.json({ success: true, columns: result.rows });
+    await pool.query(createTableQuery);
+    console.log("Table 'apps' ensured to exist.");
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Database connection error', error: err.message });
+    console.error("Error ensuring table creation:", err);
   }
-});
+})();
 
 // AWS S3 setup
 const s3 = new S3Client({
@@ -69,6 +58,20 @@ const upload = multer({ dest: 'uploads/' });
 // Convert __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// DB Test Route
+app.get('/db-test', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT column_name FROM information_schema.columns WHERE table_name = $1',
+      ['apps']
+    );
+    res.json({ success: true, columns: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Database connection error', error: err.message });
+  }
+});
 
 // Route: Form submission
 app.post('/submit-form', upload.single('file'), async (req, res) => {
