@@ -15,7 +15,11 @@ const { Pool } = pkg; // Destructure from CommonJS import
 // PostgreSQL setup
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false, 
+  },
 });
+
 
 const createTableQuery = `
     CREATE TABLE IF NOT EXISTS apps (
