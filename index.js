@@ -22,7 +22,7 @@ const createTableQuery = `
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL,
-        website VARCHAR(255),
+        website VARCHAR(255) NOT NULL,
         app_name VARCHAR(255) NOT NULL,
         app_url TEXT,
         created_at TIMESTAMP DEFAULT NOW()
@@ -59,7 +59,7 @@ const upload = multer({ dest: 'uploads/' });
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// DB Test Route
+// Route: Database test
 app.get('/db-test', async (req, res) => {
   try {
     const result = await pool.query(
@@ -69,19 +69,21 @@ app.get('/db-test', async (req, res) => {
     res.json({ success: true, columns: result.rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: 'Database connection error', error: err.message });
+    res
+      .status(500)
+      .json({ success: false, message: 'Database connection error', error: err.message });
   }
 });
 
 // Route: Form submission
 app.post('/submit-form', upload.single('file'), async (req, res) => {
   try {
-    const { name, website, app_name } = req.body;
+    const { name, email, website, app_name } = req.body;
 
     // Insert data into the PostgreSQL database
     const result = await pool.query(
-      'INSERT INTO apps (name, website, app_name) VALUES ($1, $2, $3) RETURNING *',
-      [name, website, app_name]
+      'INSERT INTO apps (name, email, website, app_name, app_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name, email, website, app_name, '']
     );
 
     // File upload to S3
@@ -101,6 +103,9 @@ app.post('/submit-form', upload.single('file'), async (req, res) => {
 
       fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
       fs.unlinkSync(req.file.path); // Clean up local file
+
+      // Update app_url in the database
+      await pool.query('UPDATE apps SET app_url = $1 WHERE id = $2', [fileUrl, result.rows[0].id]);
     }
 
     res.json({
