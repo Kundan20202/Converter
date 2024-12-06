@@ -22,23 +22,24 @@ const pool = new Pool({
 
 
 const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS apps (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL,
-        website VARCHAR(255) NOT NULL,
-        app_name VARCHAR(255) NOT NULL,
-        app_url TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
-    );
+  DROP TABLE IF EXISTS apps;
+  CREATE TABLE apps (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    website VARCHAR(255) NOT NULL,
+    app_name VARCHAR(255) NOT NULL,
+    app_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
 `;
 
 (async () => {
   try {
     await pool.query(createTableQuery);
-    console.log("Table 'apps' ensured to exist.");
+    console.log("Table 'apps' dropped and recreated successfully.");
   } catch (err) {
-    console.error("Error ensuring table creation:", err);
+    console.error("Error recreating table:", err);
   }
 })();
 
