@@ -85,11 +85,13 @@ app.post('/submit-form', upload.single('file'), async (req, res) => {
   try {
     const { name, email, website, app_name } = req.body;
 
-    // Insert data into the PostgreSQL database
-    const result = await pool.query(
-      'INSERT INTO apps (name, email, website, app_name, app_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [name, email, website, app_name, '']
-    );
+
+// Insert data into the PostgreSQL database
+const result = await pool.query(
+  'INSERT INTO apps (name, website, app_name, email) VALUES ($1, $2, $3, $4) RETURNING *',
+  [name, website, app_name, email]
+);
+
 
     // File upload to S3
     let fileUrl = '';
