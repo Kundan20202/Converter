@@ -1,29 +1,24 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import pkg from 'pg'; // Fixed import for CommonJS
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import pkg from 'pg';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
-// Load environment variables
 dotenv.config();
 
-const { Pool } = pkg; // Destructure from CommonJS import
-
-// PostgreSQL setup
+const { Pool } = pkg; // PostgreSQL setup
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false, 
-  },
+  ssl: { rejectUnauthorized: false }, // For external DB connections
 });
 
-
+// Ensure the table exists
 const createTableQuery = `
-  DROP TABLE IF EXISTS apps;
-  CREATE TABLE apps (
+  CREATE TABLE IF NOT EXISTS apps (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
@@ -37,93 +32,78 @@ const createTableQuery = `
 (async () => {
   try {
     await pool.query(createTableQuery);
-    console.log("Table 'apps' dropped and recreated successfully.");
+    console.log("Table 'apps' ensured to exist.");
   } catch (err) {
-    console.error("Error recreating table:", err);
+    console.error("Error ensuring table creation:", err);
   }
 })();
 
-// AWS S3 setup
-const s3 = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
-
-// Express setup
 const app = express();
 const port = process.env.PORT || 5000;
 app.use(express.json());
-
-// Handle file uploads
 const upload = multer({ dest: 'uploads/' });
 
-// Convert __dirname for ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Dynamic app.json updater
+function updateAppConfig(appName, website) {
+  const config = {
+    expo: {
+      name: appName,
+      slug: appName.toLowerCase().replace(/ /g, '-'),
+      version: '1.0.0',
+      orientation: 'portrait',
+      platforms: ['ios', 'android'],
+      entryPoint: './App.js',
+      extra: { website },
+    },
+  };
+  fs.writeFileSync('./app.json', JSON.stringify(config, null, 2));
+}
 
-// Route: Database test
-app.get('/db-test', async (req, res) => {
+// Utility function to parse EAS CLI output
+function extractDownloadLink(output) {
+  const regex = /https:\/\/expo\.dev\/artifacts\/.*?(?=\s|$)/;
+  const match = output.match(regex);
+  return match ? match[0] : null;
+}
+
+// Route: Generate app
+app.post('/generate-app', async (req, res) => {
+  const { name, email, website, app_name } = req.body;
+
   try {
-    const result = await pool.query(
-      'SELECT column_name FROM information_schema.columns WHERE table_name = $1',
-      ['apps']
-    );
-    res.json({ success: true, columns: result.rows });
+    // Update app.json dynamically
+    updateAppConfig(app_name, website);
+
+    // Trigger EAS build
+    exec('eas build --platform android --profile production', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Build Error: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Build failed' });
+        return;
+      }
+
+      if (stderr) console.error(`Build STDERR: ${stderr}`);
+
+      // Extract download link
+      const downloadLink = extractDownloadLink(stdout);
+
+      // Insert data into the database
+      pool.query(
+        'INSERT INTO apps (name, email, website, app_name, app_url) VALUES ($1, $2, $3, $4, $5)',
+        [name, email, website, app_name, downloadLink],
+        (dbErr, result) => {
+          if (dbErr) {
+            console.error(dbErr);
+            res.status(500).json({ success: false, message: 'Database error' });
+            return;
+          }
+          res.json({ success: true, app_url: downloadLink });
+        }
+      );
+    });
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ success: false, message: 'Database connection error', error: err.message });
-  }
-});
-
-// Route: Form submission
-app.post('/submit-form', upload.single('file'), async (req, res) => {
-  try {
-    const { name, email, website, app_name } = req.body;
-
-
-// Insert data into the PostgreSQL database
-const result = await pool.query(
-  'INSERT INTO apps (name, website, app_name, email) VALUES ($1, $2, $3, $4) RETURNING *',
-  [name, website, app_name, email]
-);
-
-
-    // File upload to S3
-    let fileUrl = '';
-    if (req.file) {
-      const fileContent = fs.readFileSync(req.file.path);
-      const fileName = `${Date.now()}_${req.file.originalname}`;
-
-      const uploadResult = await s3.send(
-        new PutObjectCommand({
-          Bucket: process.env.AWS_BUCKET_NAME,
-          Key: fileName,
-          Body: fileContent,
-          ContentType: req.file.mimetype,
-        })
-      );
-
-      fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
-      fs.unlinkSync(req.file.path); // Clean up local file
-
-      // Update app_url in the database
-      await pool.query('UPDATE apps SET app_url = $1 WHERE id = $2', [fileUrl, result.rows[0].id]);
-    }
-
-    res.json({
-      success: true,
-      message: 'Form submitted successfully',
-      data: result.rows[0],
-      fileUrl: fileUrl,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Internal Server Error' });
+    res.status(500).json({ success: false, message: 'Failed to generate app' });
   }
 });
 
@@ -135,6 +115,17 @@ app.get('/submission', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Failed to retrieve submissions' });
+  }
+});
+
+// Route: Test DB connection
+app.get('/db-test', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT column_name FROM information_schema.columns WHERE table_name = $1', ['apps']);
+    res.json({ success: true, columns: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Database connection error', error: err.message });
   }
 });
 
