@@ -1,13 +1,14 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import pkg from 'pg';
-import multer from 'multer';
+import pkg from 'pg'; // PostgreSQL
+import multer from 'multer'; // File uploads
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
+// Load environment variables
 dotenv.config();
 
 const { Pool } = pkg; // PostgreSQL setup
@@ -38,10 +39,20 @@ const createTableQuery = `
   }
 })();
 
+// Initialize Express
 const app = express();
 const port = process.env.PORT || 5000;
 app.use(express.json());
 const upload = multer({ dest: 'uploads/' });
+
+// AWS S3 setup
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 
 // Dynamic app.json updater
 function updateAppConfig(appName, website) {
@@ -66,7 +77,71 @@ function extractDownloadLink(output) {
   return match ? match[0] : null;
 }
 
-// Route: Generate app
+// Route: Test DB connection
+app.get('/db-test', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT column_name FROM information_schema.columns WHERE table_name = $1', ['apps']);
+    res.json({ success: true, columns: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Database connection error', error: err.message });
+  }
+});
+
+// Route: View submissions
+app.get('/submission', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM apps');
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve submissions' });
+  }
+});
+
+// Route: Submit form
+app.post('/submit-form', upload.single('file'), async (req, res) => {
+  try {
+    const { name, website, app_name, email } = req.body;
+
+    // Insert data into PostgreSQL database
+    const result = await pool.query(
+      'INSERT INTO apps (name, website, app_name, email) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, website, app_name, email]
+    );
+
+    // File upload to S3 (if file exists)
+    let fileUrl = '';
+    if (req.file) {
+      const fileContent = fs.readFileSync(req.file.path);
+      const fileName = `${Date.now()}_${req.file.originalname}`;
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: fileName,
+          Body: fileContent,
+          ContentType: req.file.mimetype,
+        })
+      );
+
+      fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+      fs.unlinkSync(req.file.path); // Clean up local file
+    }
+
+    res.json({
+      success: true,
+      message: 'Form submitted successfully',
+      data: result.rows[0],
+      fileUrl: fileUrl,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+// Route: Generate app using EAS
 app.post('/generate-app', async (req, res) => {
   const { name, email, website, app_name } = req.body;
 
@@ -91,7 +166,7 @@ app.post('/generate-app', async (req, res) => {
       pool.query(
         'INSERT INTO apps (name, email, website, app_name, app_url) VALUES ($1, $2, $3, $4, $5)',
         [name, email, website, app_name, downloadLink],
-        (dbErr, result) => {
+        (dbErr) => {
           if (dbErr) {
             console.error(dbErr);
             res.status(500).json({ success: false, message: 'Database error' });
@@ -104,28 +179,6 @@ app.post('/generate-app', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Failed to generate app' });
-  }
-});
-
-// Route: View submissions
-app.get('/submission', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM apps');
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Failed to retrieve submissions' });
-  }
-});
-
-// Route: Test DB connection
-app.get('/db-test', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT column_name FROM information_schema.columns WHERE table_name = $1', ['apps']);
-    res.json({ success: true, columns: result.rows });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Database connection error', error: err.message });
   }
 });
 
