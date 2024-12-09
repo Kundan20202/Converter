@@ -107,24 +107,22 @@ app.get('/submission', async (req, res) => {
   }
 });
 
-// Route: Generate App (Trigger EAS Build)
 app.post('/generate-app', async (req, res) => {
-  const { name, website } = req.body;
+  const { name, email, website, app_name } = req.body;
 
-  if (!name || !website) {
-    return res.status(400).json({ success: false, message: "Name and website are required." });
+  if (!name || !email || !website || !app_name) {
+    return res.status(400).json({ success: false, message: "All fields are required." });
   }
 
   try {
     // Path to `app.json`
     const appJsonPath = path.join(__dirname, 'app.json');
 
-    // Read and update `app.json`
+    // Update `app.json` dynamically
     const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf-8'));
-    appJson.expo.name = name;
-    appJson.expo.extra = { website }; // Add extra field for website
+    appJson.expo.name = app_name;
+    appJson.expo.extra = { website }; // Add website to the extra field for Expo
     fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
-
     console.log("app.json updated successfully!");
 
     // Trigger EAS build
@@ -134,7 +132,7 @@ app.post('/generate-app', async (req, res) => {
         return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
       }
 
-      // Parse EAS build response
+      // Parse the build link
       const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
       if (!buildLinkMatch) {
         return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
@@ -153,7 +151,6 @@ app.post('/generate-app', async (req, res) => {
             return res.status(500).json({ success: false, message: "Failed to update database." });
           }
 
-          // Return the app download link
           res.json({ success: true, message: "App generated successfully!", link: buildLink });
         }
       );
@@ -163,6 +160,7 @@ app.post('/generate-app', async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
   }
 });
+
 
 // Start the server
 app.listen(port, () => {
