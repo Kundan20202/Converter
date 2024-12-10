@@ -106,18 +106,22 @@ app.get('/submission', async (req, res) => {
   }
 });
 
-// Async function to run exec command
 const execAsync = (command) => {
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
       if (error) {
+        console.error(`exec error: ${error}`);
         reject(`exec error: ${error}`);
         return;
+      }
+      if (stderr) {
+        console.error(`stderr: ${stderr}`);
       }
       resolve({ stdout, stderr });
     });
   });
 };
+
 
 // Route: Generate the app (build process)
 app.post('/generate-app', async (req, res) => {
