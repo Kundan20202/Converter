@@ -8,7 +8,6 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
-
 // Load environment variables
 dotenv.config();
 const { Pool } = pkg;
@@ -107,6 +106,7 @@ app.get('/submission', async (req, res) => {
   }
 });
 
+// Route: Generate app
 app.post('/generate-app', async (req, res) => {
   const { name, email, website, app_name } = req.body;
 
@@ -132,9 +132,12 @@ app.post('/generate-app', async (req, res) => {
         return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
       }
 
+      console.log("EAS build output:", stdout);
+
       // Parse the build link
       const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
       if (!buildLinkMatch) {
+        console.error("Failed to parse build link from output:", stdout);
         return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
       }
 
@@ -151,6 +154,7 @@ app.post('/generate-app', async (req, res) => {
             return res.status(500).json({ success: false, message: "Failed to update database." });
           }
 
+          console.log("Database updated successfully with app_url:", buildLink);
           res.json({ success: true, message: "App generated successfully!", link: buildLink });
         }
       );
@@ -160,7 +164,6 @@ app.post('/generate-app', async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
   }
 });
-
 
 // Start the server
 app.listen(port, () => {
