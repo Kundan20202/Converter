@@ -3,11 +3,10 @@ import dotenv from 'dotenv';
 import pkg from 'pg';
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
+import { exec } from 'child_process';  // Import exec to run commands
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-
 
 // Load environment variables
 dotenv.config();
@@ -107,6 +106,20 @@ app.get('/submission', async (req, res) => {
   }
 });
 
+// Async function to run exec command
+const execAsync = (command) => {
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        reject(`exec error: ${error}`);
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+};
+
+// Route: Generate the app (build process)
 app.post('/generate-app', async (req, res) => {
   try {
     console.log("Starting EAS build...");
@@ -137,7 +150,6 @@ app.post('/generate-app', async (req, res) => {
     });
   }
 });
-
 
 // Start the server
 app.listen(port, () => {
