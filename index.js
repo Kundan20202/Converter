@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import pkg from 'pg';
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';  // Import exec to run commands
+import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -106,52 +106,60 @@ app.get('/submission', async (req, res) => {
   }
 });
 
-const execAsync = (command) => {
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`exec error: ${error}`);
-        reject(`exec error: ${error}`);
-        return;
-      }
-      if (stderr) {
-        console.error(`stderr: ${stderr}`);
-      }
-      resolve({ stdout, stderr });
-    });
-  });
-};
-
-
-// Route: Generate the app (build process)
+// Route: Generate App (Trigger EAS Build)
 app.post('/generate-app', async (req, res) => {
+  const { name, website } = req.body;
+
+  if (!name || !website) {
+    return res.status(400).json({ success: false, message: "Name and website are required." });
+  }
+
   try {
-    console.log("Starting EAS build...");
+    // Path to `app.json`
+    const appJsonPath = path.join(__dirname, 'app.json');
 
-    const buildCommand = `eas build --platform all --profile production --non-interactive`;
-    const { stdout, stderr } = await execAsync(buildCommand);
+    // Read and update `app.json`
+    const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf-8'));
+    appJson.expo.name = name;
+    appJson.expo.extra = { website }; // Add extra field for website
+    fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
 
-    console.log("EAS Build Output:", stdout); // Log success output
-    console.error("EAS Build Errors:", stderr); // Log error output
+    console.log("app.json updated successfully!");
 
-    if (stderr.includes('Error')) {
-      return res.status(500).json({
-        success: false,
-        message: "EAS build failed.",
-        error: stderr,
-      });
-    }
+    // Trigger EAS build
+    exec('eas build --platform android --profile production', { cwd: __dirname }, (err, stdout, stderr) => {
+      if (err) {
+        console.error("Error during EAS build:", stderr);
+        return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
+      }
 
-    // Your code for handling successful builds (e.g., uploading to AWS)
-    res.json({ success: true, message: "EAS build completed successfully." });
+      // Parse EAS build response
+      const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
+      if (!buildLinkMatch) {
+        return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
+      }
 
-  } catch (error) {
-    console.error("Error during EAS build:", error);
-    res.status(500).json({
-      success: false,
-      message: "EAS build failed.",
-      error: error.message,
+      const buildLink = buildLinkMatch[0];
+      console.log("Build link:", buildLink);
+
+      // Store app_url in the database
+      pool.query(
+        'UPDATE apps SET app_url = $1 WHERE website = $2 RETURNING *',
+        [buildLink, website],
+        (dbErr, dbResult) => {
+          if (dbErr) {
+            console.error("Database update error:", dbErr);
+            return res.status(500).json({ success: false, message: "Failed to update database." });
+          }
+
+          // Return the app download link
+          res.json({ success: true, message: "App generated successfully!", link: buildLink });
+        }
+      );
     });
+  } catch (error) {
+    console.error("Error in generate-app:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
   }
 });
 
