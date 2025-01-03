@@ -62,11 +62,12 @@ const __dirname = path.dirname(__filename);
 // Route: Test database connection
 app.get('/db-test', async (req, res) => {
   try {
+    // Test query to check if the database is connected
     const result = await pool.query(
       'SELECT column_name FROM information_schema.columns WHERE table_name = $1',
       ['apps']
     );
-    res.json({ success: true, columns: result.rows });
+    res.json({ success: true, message: 'Database connected successfully!', columns: result.rows });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Database connection error', error: err.message });
