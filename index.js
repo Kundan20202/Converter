@@ -20,21 +20,23 @@ app.get('/', (req, res) => {
     res.send('Backend is running!');
 });
 
+
 // Registration Route
 app.post('/api/register', (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, website, password } = req.body;
 
     // Validate input
-    if (!name || !email || !password) {
+    if (!name || !email || !website || !password) {
         return res.status(400).json({ message: 'Registration failed: All fields are required!' });
     }
 
     // Simulate successful registration (e.g., database logic goes here)
-    console.log('User Registration Data:', { name, email, password });
+    console.log('User Registration Data:', { name, email, website, password });
 
     // Simulated success response
     res.status(200).json({ message: 'Registration successful!' });
 });
+
 
 // Load environment variables
 dotenv.config();
