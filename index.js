@@ -9,6 +9,7 @@ import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import bcrypt from 'bcryptjs';
 
 
 
@@ -21,6 +22,10 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL.includes("localhost") ? false : { rejectUnauthorized: false },
 });
+
+
+// For Password Ecryption
+const hashedPassword = await bcrypt.hash(password, 10);
 
 // Create the `apps` table if it doesn't exist
 const createTableQuery = `
