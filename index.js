@@ -95,29 +95,24 @@ app.get('/', (req, res) => {
 app.post('/api/register', async (req, res) => {
     const { name, email, website, password } = req.body;
 
-    // Check if all required fields are provided
     if (!name || !email || !website || !password) {
         return res.status(400).json({ message: 'All fields are required.' });
     }
 
     try {
-        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insert user data into the database
         const result = await pool.query(
             `INSERT INTO apps (name, email, website, app_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
             [name, email, website, 'DefaultAppName', hashedPassword]
         );
 
-        // Respond with success
         res.status(201).json({ message: 'Registration successful!', user: result.rows[0] });
     } catch (error) {
-        console.error('Error during registration:', error);
-        res.status(500).json({ message: 'Registration failed.' });
+        console.error('Error during registration:', error); // Log the error for debugging
+        res.status(500).json({ message: 'Registration failed.', error: error.message });
     }
 });
-
 
 
 
