@@ -89,22 +89,21 @@ app.get('/', (req, res) => {
     res.send('Backend is running!');
 });
 
-
-// Registration Route
-app.post('/api/register', (req, res) => {
+// Registration-Route
+app.post('/api/register', async (req, res) => {
     const { name, email, website, password } = req.body;
-
-    // Validate input
-    if (!name || !email || !website || !password) {
-        return res.status(400).json({ message: 'Registration failed: All fields are required!' });
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const query = `INSERT INTO users (name, email, website, password) VALUES ($1, $2, $3, $4)`;
+        await pool.query(query, [name, email, website, hashedPassword]);
+        console.log('User registered successfully:', { name, email, website });
+        res.status(201).json({ message: 'Registration successful!' });
+    } catch (error) {
+        console.error('Error during registration:', error.message, error.stack);
+        res.status(500).json({ message: 'Registration failed.' });
     }
-
-    // Simulate successful registration (e.g., database logic goes here)
-    console.log('User Registration Data:', { name, email, website, password });
-
-    // Simulated success response
-    res.status(200).json({ message: 'Registration successful!' });
 });
+
 
 
 
