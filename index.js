@@ -7,6 +7,34 @@ import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Root Route
+app.get('/', (req, res) => {
+    res.send('Backend is running!');
+});
+
+// Registration Route
+app.post('/api/register', (req, res) => {
+    const { name, email, password } = req.body;
+
+    // Validate input
+    if (!name || !email || !password) {
+        return res.status(400).json({ message: 'Registration failed: All fields are required!' });
+    }
+
+    // Simulate successful registration (e.g., database logic goes here)
+    console.log('User Registration Data:', { name, email, password });
+
+    // Simulated success response
+    res.status(200).json({ message: 'Registration successful!' });
+});
 
 // Load environment variables
 dotenv.config();
