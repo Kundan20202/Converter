@@ -1,4 +1,6 @@
 DROP TABLE IF EXISTS apps;
+SELECT current_database();
+
 
 CREATE TABLE apps (
     id SERIAL PRIMARY KEY,
