@@ -9,6 +9,7 @@ import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import { Pool } from 'pg';
 
 
 
@@ -106,6 +107,17 @@ app.post('/api/register', (req, res) => {
     res.status(200).json({ message: 'Registration successful!' });
 });
 
+
+
+app.get('/api/users', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM users');
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching users:', error.message);
+        res.status(500).json({ message: 'Failed to fetch users.' });
+    }
+});
 
 
 
