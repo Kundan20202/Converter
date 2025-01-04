@@ -23,10 +23,6 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL.includes("localhost") ? false : { rejectUnauthorized: false },
 });
 
-
-// For Password Ecryption
-const hashedPassword = await bcrypt.hash(password, 10);
-
 // Create the `apps` table if it doesn't exist
 const createTableQuery = `
   CREATE TABLE IF NOT EXISTS apps (
@@ -98,17 +94,30 @@ app.get('/', (req, res) => {
 // Registration-Route
 app.post('/api/register', async (req, res) => {
     const { name, email, website, password } = req.body;
+
+    // Check if all required fields are provided
+    if (!name || !email || !website || !password) {
+        return res.status(400).json({ message: 'All fields are required.' });
+    }
+
     try {
+        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
-        const query = `INSERT INTO users (name, email, website, password) VALUES ($1, $2, $3, $4)`;
-        await pool.query(query, [name, email, website, hashedPassword]);
-        console.log('User registered successfully:', { name, email, website });
-        res.status(201).json({ message: 'Registration successful!' });
+
+        // Insert user data into the database
+        const result = await pool.query(
+            `INSERT INTO apps (name, email, website, app_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [name, email, website, 'DefaultAppName', hashedPassword]
+        );
+
+        // Respond with success
+        res.status(201).json({ message: 'Registration successful!', user: result.rows[0] });
     } catch (error) {
-        console.error('Error during registration:', error.message, error.stack);
+        console.error('Error during registration:', error);
         res.status(500).json({ message: 'Registration failed.' });
     }
 });
+
 
 
 
