@@ -11,7 +11,18 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
 
+// Schema
+const schemaPath = path.join(__dirname, 'schema.sql');
+const schema = fs.readFileSync(schemaPath, 'utf8');
 
+(async () => {
+  try {
+    await pool.query(schema);
+    console.log("Schema applied successfully.");
+  } catch (err) {
+    console.error("Error applying schema:", err);
+  }
+})();
 
 // Load environment variables
 dotenv.config();
