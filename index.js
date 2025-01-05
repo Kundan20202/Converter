@@ -11,18 +11,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
 
-// Schema
-const schemaPath = path.join(__dirname, 'schema.sql');
-const schema = fs.readFileSync(schemaPath, 'utf8');
 
-(async () => {
-  try {
-    await pool.query(schema);
-    console.log("Schema applied successfully.");
-  } catch (err) {
-    console.error("Error applying schema:", err);
-  }
-})();
 
 // Load environment variables
 dotenv.config();
@@ -78,6 +67,18 @@ const upload = multer({ dest: 'uploads/' });
 // Convert __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const schemaPath = path.join(__dirname, 'schema.sql');
+const schema = fs.readFileSync(schemaPath, 'utf8');
+
+(async () => {
+  try {
+    await pool.query(schema);
+    console.log("Schema applied successfully.");
+  } catch (err) {
+    console.error("Error applying schema:", err);
+  }
+})();
 
 // Route: Test database connection
 app.get('/db-test', async (req, res) => {
