@@ -8,7 +8,7 @@ CREATE TABLE apps (
     email VARCHAR(255) NOT NULL UNIQUE,
     website VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
-    situation VARCHAR(255) NOT NULL,
+    situation VARCHAR(255),
     app_name VARCHAR(255) NOT NULL,
     app_type VARCHAR(255) NOT NULL,
     country VARCHAR(255) NOT NULL,
