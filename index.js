@@ -120,7 +120,7 @@ app.post('/api/register', async (req, res) => {
         const emailCheckResult = await pool.query('SELECT * FROM apps WHERE email = $1', [email]);
 
         if (emailCheckResult.rows.length > 0) {
-            return res.status(400).json({ message: 'Email already exists. Please try a different one.' });
+            return res.status(400).json({ message: 'Email already exists.' });
         }
 
         // Proceed with registration if email is not taken
