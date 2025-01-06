@@ -11,6 +11,8 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
 
+// DELETE THIS BEFORE PUBLISHING TO PUBLIC 
+app.use(cors());
 
 
 // Load environment variables
