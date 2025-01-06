@@ -102,7 +102,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 const corsOptions = {
     origin: 'https://stackblitzstartersfaqe1hfj-ler5--8080--c8c182a3.local-credentialless.webcontainer.io/', // Replace with your StackBlitz URL
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type'],
 };
 
