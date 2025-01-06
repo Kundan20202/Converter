@@ -106,15 +106,24 @@ app.get('/', (req, res) => {
     res.send('Backend is running!');
 });
 
-// Registration-Route
+// Registration Route
 app.post('/api/register', async (req, res) => {
     const { name, email, website, password } = req.body;
 
+    // Check if all required fields are provided
     if (!name || !email || !website || !password) {
         return res.status(400).json({ message: 'All fields are required.' });
     }
 
     try {
+        // Check if the email already exists
+        const emailCheckResult = await pool.query('SELECT * FROM apps WHERE email = $1', [email]);
+
+        if (emailCheckResult.rows.length > 0) {
+            return res.status(400).json({ message: 'Email already exists. Please try a different one.' });
+        }
+
+        // Proceed with registration if email is not taken
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const result = await pool.query(
@@ -128,6 +137,7 @@ app.post('/api/register', async (req, res) => {
         res.status(500).json({ message: 'Registration failed.', error: error.message });
     }
 });
+
 
 
 // GET USERS
