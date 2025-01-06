@@ -11,9 +11,6 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
 
-// DELETE THIS BEFORE PUBLISHING TO PUBLIC 
-app.use(cors());
-
 
 // Load environment variables
 dotenv.config();
@@ -102,6 +99,7 @@ app.get('/db-test', async (req, res) => {
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
 
 // Root Route
 app.get('/', (req, res) => {
