@@ -138,6 +138,29 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+// Situation Route
+app.post('/api/situation', async (req, res) => {
+    const { situation } = req.body;
+
+    if (!situation) {
+        return res.status(400).json({ message: 'Situation is required.' });
+    }
+
+    try {
+        // Example: Update the "situation" column for the logged-in user
+        const userId = req.session.userId || 1; // Replace with actual user ID logic
+
+        await pool.query(
+            `UPDATE apps SET situation = $1 WHERE id = $2`,
+            [situation, userId]
+        );
+
+        res.status(200).json({ message: 'Situation updated successfully!' });
+    } catch (error) {
+        console.error('Error updating situation:', error); // Log error for debugging
+        res.status(500).json({ message: 'Failed to update situation.', error: error.message });
+    }
+});
 
 
 // GET USERS
