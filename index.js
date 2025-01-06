@@ -130,15 +130,27 @@ app.post('/api/register', async (req, res) => {
 });
 
 
-
+// GET USERS
 
 app.get('/api/users', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM users');
-        res.status(200).json(result.rows);
+        const result = await pool.query('SELECT * FROM apps');
+        if (result.rows.length === 0) {
+            return res.json({
+                message: 'No users found.',
+                users: [],
+            });
+        }
+        res.json({
+            message: 'Users fetched successfully!',
+            users: result.rows,
+        });
     } catch (error) {
-        console.error('Error fetching users:', error.message);
-        res.status(500).json({ message: 'Failed to fetch users.' });
+        console.error('Error fetching users:', error);
+        res.status(500).json({
+            message: 'Failed to fetch users.',
+            error: error.message,
+        });
     }
 });
 
