@@ -1,27 +1,34 @@
 DROP TABLE IF EXISTS apps;
-SELECT current_database();
-
 
 CREATE TABLE apps (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    website VARCHAR(255) NOT NULL,
+    name VARCHAR(255),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    website VARCHAR(255),
     password VARCHAR(255) NOT NULL,
-    situation VARCHAR(255),
-    app_name VARCHAR(255) NOT NULL,
-    app_type VARCHAR(255),
-    country VARCHAR(255) NOT NULL,
-    icon TEXT,
-    splash_image TEXT,
-    visitors INTEGER,
-    features TEXT[],
-    app_design VARCHAR(255),
-    customization TEXT,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    situation VARCHAR(50) DEFAULT 'Pending',
+    app_name VARCHAR(255) DEFAULT 'DefaultAppName',
+    app_type VARCHAR(50) DEFAULT NULL,
+    country VARCHAR(50) DEFAULT NULL,
+    icon TEXT DEFAULT NULL,
+    splash_image TEXT DEFAULT NULL,
+    customization JSON DEFAULT NULL,
+    features TEXT DEFAULT NULL,
+    app_design TEXT DEFAULT NULL,
+    visitors INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-SELECT column_name
-FROM information_schema.columns
-WHERE table_name = 'apps';
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = CURRENT_TIMESTAMP;
+   RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_updated_at
+BEFORE UPDATE ON apps
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
