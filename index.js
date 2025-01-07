@@ -131,6 +131,13 @@ app.get('/', (req, res) => {
 });
 
 
+//  Verify Route Setup
+app.get('/protected-route', authenticateUser, (req, res) => {
+    res.json({ message: 'You are authenticated!' });
+});
+
+
+
 // Registration Route
 app.post('/api/register', async (req, res) => {
   const { name, email, website, password } = req.body;
