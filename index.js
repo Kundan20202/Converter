@@ -82,22 +82,23 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 
 // Middleware to protect routes
 const authenticateUser = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1]; // Get the token from the 'Authorization' header (e.g., "Bearer token")
+    console.log('Authorization Header:', req.headers.authorization);
+    const token = req.headers.authorization?.split(' ')[1];
 
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
+    if (!token) {
+        return res.status(401).json({ message: 'No token provided' });
+    }
 
-  try {
-    // Verify the token and extract user info
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach the decoded user info to the request object
-    next(); // Proceed to the next middleware or route handler
-  } catch (error) {
-    console.error('JWT Authentication Error:', error);
-    return res.status(401).json({ message: 'Invalid or expired token' });
-  }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        console.error('JWT Authentication Error:', error);
+        return res.status(401).json({ message: 'Invalid or expired token' });
+    }
 };
+
 
 
 // Route: Test database connection
