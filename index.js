@@ -82,22 +82,23 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 
 // Middleware to protect routes
 const authenticateUser = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1]; // Get the token from the 'Authorization' header (e.g., "Bearer token")
+  const token = req.headers.authorization?.split(' ')[1]; // Get the token from the 'Authorization' header (e.g., "Bearer token")
 
-    if (!token) {
-        return res.status(401).json({ message: 'No token provided' });
-    }
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
 
-    try {
-        // Verify the token and extract user info
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;  // Attach the decoded user info to the request object
-        next();  // Proceed to the next middleware or route handler
-    } catch (error) {
-        console.error('JWT Authentication Error:', error);
-        return res.status(401).json({ message: 'Invalid or expired token' });
-    }
+  try {
+    // Verify the token and extract user info
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // Attach the decoded user info to the request object
+    next(); // Proceed to the next middleware or route handler
+  } catch (error) {
+    console.error('JWT Authentication Error:', error);
+    return res.status(401).json({ message: 'Invalid or expired token' });
+  }
 };
+
 
 // Route: Test database connection
 app.get('/db-test', async (req, res) => {
@@ -128,36 +129,34 @@ app.get('/', (req, res) => {
     res.send('Backend is running!');
 });
 
+
 // Registration Route
 app.post('/api/register', async (req, res) => {
-    const { name, email, website, password } = req.body;
+  const { name, email, website, password } = req.body;
 
-    // Check if all required fields are provided
-    if (!name || !email || !website || !password) {
-        return res.status(400).json({ message: 'All fields are required.' });
+  if (!name || !email || !website || !password) {
+    return res.status(400).json({ message: 'All fields are required.' });
+  }
+
+  try {
+    const emailCheckResult = await pool.query('SELECT * FROM apps WHERE email = $1', [email]);
+
+    if (emailCheckResult.rows.length > 0) {
+      return res.status(400).json({ message: 'Email already exists.' });
     }
 
-    try {
-        // Check if the email already exists
-        const emailCheckResult = await pool.query('SELECT * FROM apps WHERE email = $1', [email]);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-        if (emailCheckResult.rows.length > 0) {
-            return res.status(400).json({ message: 'Email already exists.' });
-        }
+    const result = await pool.query(
+      `INSERT INTO apps (name, email, website, app_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [name, email, website, 'DefaultAppName', hashedPassword]
+    );
 
-        // Proceed with registration if email is not taken
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const result = await pool.query(
-            `INSERT INTO apps (name, email, website, app_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [name, email, website, 'DefaultAppName', hashedPassword]
-        );
-
-        res.status(201).json({ message: 'Registration successful!', user: result.rows[0] });
-    } catch (error) {
-        console.error('Error during registration:', error); // Log the error for debugging
-        res.status(500).json({ message: 'Registration failed.', error: error.message });
-    }
+    res.status(201).json({ message: 'Registration successful!', user: result.rows[0] });
+  } catch (error) {
+    console.error('Error during registration:', error);
+    res.status(500).json({ message: 'Registration failed.', error: error.message });
+  }
 });
 
 app.post('/api/situation', async (req, res) => {
@@ -211,31 +210,29 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Backend Route to update company details
-app.post('/api/update-company-details', async (req, res) => {
-    const { app_name, app_type, visitors, country } = req.body;
+// Update Company Details
+app.post('/api/update-company-details', authenticateUser, async (req, res) => {
+  const { app_name, app_type, visitors, country } = req.body;
 
-    // Check if all required fields are provided
-    if (!app_name || !app_type || !visitors || !country) {
-        return res.status(400).json({ message: 'All fields are required.' });
+  if (!app_name || !app_type || !visitors || !country) {
+    return res.status(400).json({ message: 'All fields are required.' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE apps SET app_name = $1, app_type = $2, visitors = $3, country = $4 WHERE id = $5 RETURNING *',
+      [app_name, app_type, visitors, country, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found or not authorized.' });
     }
 
-    try {
-        // Assuming the user ID is stored in a session or JWT token
-        const userId = req.user.id; // Ensure you have the user's ID to update the correct record
-
-        // Update the company details in the database
-        const result = await pool.query(
-            'UPDATE users SET app_name = $1, app_type = $2, visitors = $3, country = $4 WHERE id = $5 RETURNING *',
-            [app_name, app_type, visitors, country, userId]
-        );
-
-        // Send success response
-        res.status(200).json({ message: 'Company details updated successfully!', user: result.rows[0] });
-    } catch (error) {
-        console.error('Error updating company details:', error);
-        res.status(500).json({ message: 'Failed to update company details.' });
-    }
+    res.status(200).json({ message: 'Company details updated successfully!', user: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating company details:', error);
+    res.status(500).json({ message: 'Failed to update company details.' });
+  }
 });
 
 
