@@ -140,7 +140,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-app.post('/api/update-situation', async (req, res) => {
+app.post('/api/situation', async (req, res) => {
     const { situation } = req.body;
 
     if (!situation) {
