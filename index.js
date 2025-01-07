@@ -172,7 +172,7 @@ app.post('/api/update-company-details', async (req, res) => {
 
     try {
         // Assuming the user ID is stored in a session or JWT token
-        const userId = req.user.id;
+        const userId = req.user.id; // Ensure you have the user's ID to update the correct record
 
         // Update the company details in the database
         const result = await pool.query(
