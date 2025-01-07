@@ -144,18 +144,29 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/situation', async (req, res) => {
     const { situation } = req.body;
 
+    // Validate situation input
     if (!situation) {
         return res.status(400).json({ message: 'Situation is required.' });
     }
 
     try {
-        // Example: Update the "situation" column for the logged-in user
-        const userId = req.session.userId || 1; // Replace with actual user ID logic
+        // Get the userId from the session. If not logged in, return 401 error
+        const userId = req.session.userId;
+        
+        if (!userId) {
+            return res.status(401).json({ message: 'User is not logged in.' });
+        }
 
-        await pool.query(
+        // Update the situation for the logged-in user
+        const result = await pool.query(
             `UPDATE apps SET situation = $1 WHERE id = $2`,
             [situation, userId]
         );
+
+        // Check if the user was found and updated
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: 'User not found or situation not updated.' });
+        }
 
         res.status(200).json({ message: 'Situation updated successfully!' });
     } catch (error) {
