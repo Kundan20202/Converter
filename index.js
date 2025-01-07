@@ -164,7 +164,6 @@ app.post('/api/situation', async (req, res) => {
     }
 });
 
-
 // GET USERS
 
 app.get('/api/users', async (req, res) => {
