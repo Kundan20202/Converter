@@ -82,7 +82,6 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 
 // Middleware to protect routes
 
-const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET); 
 const verifyToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
 
@@ -139,8 +138,7 @@ app.get('/protected-route', authenticateUser, (req, res) => {
 });
 
 
-
-// Registration Route
+// Registering a New User
 app.post('/api/register', async (req, res) => {
   const { name, email, website, password } = req.body;
 
@@ -149,20 +147,40 @@ app.post('/api/register', async (req, res) => {
   }
 
   try {
+    // Check if email already exists
     const emailCheckResult = await pool.query('SELECT * FROM apps WHERE email = $1', [email]);
 
     if (emailCheckResult.rows.length > 0) {
       return res.status(400).json({ message: 'Email already exists.' });
     }
 
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Insert the new user into the database
     const result = await pool.query(
       `INSERT INTO apps (name, email, website, app_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [name, email, website, 'DefaultAppName', hashedPassword]
     );
 
-    res.status(201).json({ message: 'Registration successful!', user: result.rows[0] });
+    // Get the newly created user's data
+    const user = result.rows[0];
+
+    // Generate a JWT token with the userId (No expiration to make it a long-lasting token)
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
+
+    // Send the response with the token and user details
+    res.status(201).json({
+      message: 'Registration successful!',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        website: user.website,
+      },
+      token, // Send the token along with the user data
+    });
+
   } catch (error) {
     console.error('Error during registration:', error);
     res.status(500).json({ message: 'Registration failed.', error: error.message });
