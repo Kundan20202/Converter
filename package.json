@@ -16,6 +16,7 @@
   "dependencies": {
     "@types/node": "^18.17.19",
     "multer": "^1.4.5-lts.1",
+    "jsonwebtoken": "^8.5.1",
     "expo": "51.0.0",
     "eas-cli": "^3.8.0",
     "@aws-sdk/client-s3": "^3.50.0",
