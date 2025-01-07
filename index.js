@@ -10,6 +10,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 
 // Load environment variables
@@ -78,6 +79,25 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
     console.error("Error applying schema:", err);
   }
 })();
+
+// Middleware to protect routes
+const authenticateUser = (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1]; // Get the token from the 'Authorization' header (e.g., "Bearer token")
+
+    if (!token) {
+        return res.status(401).json({ message: 'No token provided' });
+    }
+
+    try {
+        // Verify the token and extract user info
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;  // Attach the decoded user info to the request object
+        next();  // Proceed to the next middleware or route handler
+    } catch (error) {
+        console.error('JWT Authentication Error:', error);
+        return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+};
 
 // Route: Test database connection
 app.get('/db-test', async (req, res) => {
@@ -159,7 +179,37 @@ app.post('/api/situation', async (req, res) => {
     }
 });
 
+// User login route (POST)
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
 
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    try {
+        const result = await pool.query('SELECT * FROM apps WHERE email = $1', [email]);
+        const user = result.rows[0];
+
+        if (!user) {
+            return res.status(400).json({ message: 'User not found' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Invalid credentials' });
+        }
+
+        // Create JWT token
+        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' }); // Token expires in 1 hour
+        res.status(200).json({ message: 'Login successful', token });
+
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
 
 // Backend Route to update company details
 app.post('/api/update-company-details', async (req, res) => {
