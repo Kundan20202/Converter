@@ -81,23 +81,25 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 })();
 
 // Middleware to protect routes
-const authenticateUser = (req, res, next) => {
-    console.log('Authorization Header:', req.headers.authorization);
-    const token = req.headers.authorization?.split(' ')[1];
+const jwt = require('jsonwebtoken');
+const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET); 
+const verifyToken = (req, res, next) => {
+    const token = req.headers['authorization']?.split(' ')[1];
 
     if (!token) {
         return res.status(401).json({ message: 'No token provided' });
     }
 
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ message: 'Invalid or expired token' });
+        }
+        req.userId = decoded.userId;
         next();
-    } catch (error) {
-        console.error('JWT Authentication Error:', error);
-        return res.status(401).json({ message: 'Invalid or expired token' });
-    }
+    });
 };
+
+module.exports = verifyToken;
 
 
 
@@ -218,30 +220,33 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+
 // Update Company Details
-app.post('/api/update-company-details', authenticateUser, async (req, res) => {
-  const { app_name, app_type, visitors, country } = req.body;
+app.post('/api/update-company-details', verifyToken, async (req, res) => {
+    try {
+        const { app_name, app_type, visitors, country } = req.body;
 
-  if (!app_name || !app_type || !visitors || !country) {
-    return res.status(400).json({ message: 'All fields are required.' });
-  }
+        if (!app_name || !app_type || !visitors || !country) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
 
-  try {
-    const result = await pool.query(
-      'UPDATE apps SET app_name = $1, app_type = $2, visitors = $3, country = $4 WHERE id = $5 RETURNING *',
-      [app_name, app_type, visitors, country, req.user.id]
-    );
+        // Update logic (e.g., MongoDB or other database):
+        const updatedCompany = await Company.updateOne(
+            { userId: req.userId },
+            { app_name, app_type, visitors, country }
+        );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found or not authorized.' });
+        if (!updatedCompany.nModified) {
+            return res.status(400).json({ message: 'Failed to update company details' });
+        }
+
+        res.status(200).json({ message: 'Company details updated successfully' });
+    } catch (error) {
+        console.error('Error updating company details:', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
-
-    res.status(200).json({ message: 'Company details updated successfully!', user: result.rows[0] });
-  } catch (error) {
-    console.error('Error updating company details:', error);
-    res.status(500).json({ message: 'Failed to update company details.' });
-  }
 });
+
 
 
 // GET USERS
