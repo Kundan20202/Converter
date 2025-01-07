@@ -81,7 +81,7 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 })();
 
 // Middleware to protect routes
-const jwt = require('jsonwebtoken');
+
 const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET); 
 const verifyToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
