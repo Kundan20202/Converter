@@ -140,40 +140,26 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// Situation Route
-app.post('/api/situation', async (req, res) => {
+app.post('/api/update-situation', async (req, res) => {
     const { situation } = req.body;
 
-    // Validate situation input
     if (!situation) {
         return res.status(400).json({ message: 'Situation is required.' });
     }
 
     try {
-        // Get the userId from the session. If not logged in, return 401 error
-        const userId = req.session.userId;
-        
-        if (!userId) {
-            return res.status(401).json({ message: 'User is not logged in.' });
-        }
-
-        // Update the situation for the logged-in user
         const result = await pool.query(
-            `UPDATE apps SET situation = $1 WHERE id = $2`,
-            [situation, userId]
+            'UPDATE users SET situation = $1 WHERE id = $2 RETURNING *', 
+            [situation, req.user.id] // Assuming user ID is from authenticated session
         );
-
-        // Check if the user was found and updated
-        if (result.rowCount === 0) {
-            return res.status(404).json({ message: 'User not found or situation not updated.' });
-        }
-
-        res.status(200).json({ message: 'Situation updated successfully!' });
+        res.status(200).json({ message: 'Situation updated successfully!', user: result.rows[0] });
     } catch (error) {
-        console.error('Error updating situation:', error); // Log error for debugging
-        res.status(500).json({ message: 'Failed to update situation.', error: error.message });
+        console.error('Error updating situation:', error);
+        res.status(500).json({ message: 'Failed to update situation.' });
     }
 });
+
+
 
 // GET USERS
 
