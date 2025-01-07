@@ -236,27 +236,39 @@ app.post('/api/login', async (req, res) => {
 
 
 // Update Company Details
+// Update Company Details (Updating Columns)
 app.post('/api/update-company-details', verifyToken, async (req, res) => {
     try {
         const { app_name, app_type, visitors, country } = req.body;
 
+        // Check if all required fields are provided
         if (!app_name || !app_type || !visitors || !country) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        // Update logic (e.g., MongoDB or other database):
-        const updatedCompany = await Company.updateOne(
-            { userId: req.userId },
-            { app_name, app_type, visitors, country }
-        );
+        // Update the database
+        const query = `
+            UPDATE users
+            SET app_name = ?, app_type = ?, visitors = ?, country = ?
+            WHERE id = ?;
+        `;
+        const values = [app_name, app_type, visitors, country, req.userId];
 
-        if (!updatedCompany.nModified) {
-            return res.status(400).json({ message: 'Failed to update company details' });
-        }
+        // Assuming you're using a MySQL connection
+        db.query(query, values, (err, result) => {
+            if (err) {
+                console.error('Error updating details:', err);
+                return res.status(500).json({ message: 'Internal server error' });
+            }
 
-        res.status(200).json({ message: 'Company details updated successfully' });
+            if (result.affectedRows === 0) {
+                return res.status(400).json({ message: 'No updates were made. Check if the user exists or data is unchanged.' });
+            }
+
+            res.status(200).json({ message: 'Details updated successfully' });
+        });
     } catch (error) {
-        console.error('Error updating company details:', error);
+        console.error('Unexpected error:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });
