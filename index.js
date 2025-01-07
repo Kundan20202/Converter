@@ -133,11 +133,6 @@ app.get('/', (req, res) => {
 });
 
 
-//  Verify Route Setup
-app.get('/protected-route', authenticateUser, (req, res) => {
-    res.json({ message: 'You are authenticated!' });
-});
-
 
 // Registering a New User
 app.post('/api/register', async (req, res) => {
