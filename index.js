@@ -161,6 +161,34 @@ app.post('/api/situation', async (req, res) => {
 
 
 
+// Backend Route to update company details
+app.post('/api/update-company-details', async (req, res) => {
+    const { app_name, app_type, visitors, country } = req.body;
+
+    // Check if all required fields are provided
+    if (!app_name || !app_type || !visitors || !country) {
+        return res.status(400).json({ message: 'All fields are required.' });
+    }
+
+    try {
+        // Assuming the user ID is stored in a session or JWT token
+        const userId = req.user.id;
+
+        // Update the company details in the database
+        const result = await pool.query(
+            'UPDATE users SET app_name = $1, app_type = $2, visitors = $3, country = $4 WHERE id = $5 RETURNING *',
+            [app_name, app_type, visitors, country, userId]
+        );
+
+        // Send success response
+        res.status(200).json({ message: 'Company details updated successfully!', user: result.rows[0] });
+    } catch (error) {
+        console.error('Error updating company details:', error);
+        res.status(500).json({ message: 'Failed to update company details.' });
+    }
+});
+
+
 // GET USERS
 
 app.get('/api/users', async (req, res) => {
