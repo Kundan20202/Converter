@@ -183,24 +183,49 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/situation', async (req, res) => {
-    const { situation } = req.body;
-
-    if (!situation) {
-        return res.status(400).json({ message: 'Situation is required.' });
-    }
-
+// Route: Update Situation
+app.post('/api/update-situation', verifyToken, async (req, res) => {
     try {
+        const { situation } = req.body;
+
+        // Validate input
+        if (!situation) {
+            return res.status(400).json({ message: 'Situation is required.' });
+        }
+
+        // Allowed values for the situation
+        const allowedSituations = [
+            'growing business.',
+            'established business.',
+            'just getting started',
+        ];
+
+        // Check if the provided situation is valid
+        if (!allowedSituations.includes(situation)) {
+            return res.status(400).json({ message: 'Invalid situation value.' });
+        }
+
+        // Update the situation column in the database
         const result = await pool.query(
-            'UPDATE users SET situation = $1 WHERE id = $2 RETURNING *', 
-            [situation, req.user.id] // Assuming user ID is from authenticated session
+            'UPDATE apps SET situation = $1 WHERE id = $2 RETURNING *',
+            [situation, req.userId]
         );
-        res.status(200).json({ message: 'Situation updated successfully!', user: result.rows[0] });
+
+        // Check if a row was updated
+        if (result.rowCount === 0) {
+            return res.status(400).json({ message: 'No updates were made. User may not exist.' });
+        }
+
+        res.status(200).json({
+            message: 'Situation updated successfully!',
+            user: result.rows[0], // Returning the updated user data
+        });
     } catch (error) {
         console.error('Error updating situation:', error);
-        res.status(500).json({ message: 'Failed to update situation.' });
+        res.status(500).json({ message: 'Failed to update situation.', error: error.message });
     }
 });
+
 
 // User login route (POST)
 app.post('/api/login', async (req, res) => {
