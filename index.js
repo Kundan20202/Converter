@@ -345,32 +345,49 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
     }
 });
 
-// Login Route
-app.post("/login", async (req, res) => {
-    const { email, password } = req.body;
+// Route: Login
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
 
-    // Validate inputs
-    if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required" });
-    }
+  // Validate input
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
 
-    // Find user in the database
-    const user = users.find((u) => u.email === email);
+  try {
+    // Check if the user exists in the database
+    const result = await pool.query('SELECT * FROM apps WHERE email = $1', [email]);
+    const user = result.rows[0];
+
     if (!user) {
-        return res.status(401).json({ error: "Invalid email or password" });
+      return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
-    // Check password
+    // Verify the password
     const isPasswordValid = await bcrypt.compare(password, user.password);
+
     if (!isPasswordValid) {
-        return res.status(401).json({ error: "Invalid email or password" });
+      return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
     // Generate JWT token
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET,);
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    // Respond with the token
-    res.status(200).json({ message: "Login successful", token });
+    // Respond with the token and user details
+    res.status(200).json({
+      message: 'Login successful!',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        website: user.website,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ message: 'Login failed.', error: error.message });
+  }
 });
 
 
