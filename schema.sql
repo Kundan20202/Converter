@@ -13,7 +13,7 @@ CREATE TABLE apps (
     country VARCHAR(50) DEFAULT NULL,
     icon TEXT DEFAULT NULL,
     splash_image TEXT DEFAULT NULL,
-    customization JSON DEFAULT NULL,
+    customization VARCHAR(255) DEFAULT NULL,
     features TEXT DEFAULT NULL,
     app_design TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
