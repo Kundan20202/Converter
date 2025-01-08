@@ -373,7 +373,7 @@ app.post("/login", async (req, res) => {
     res.status(200).json({ message: "Login successful", token });
 });
 
-module.exports = router;
+export default router;
 
 
 // Update Company Details
