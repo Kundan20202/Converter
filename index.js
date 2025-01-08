@@ -80,10 +80,10 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
   }
 })();
 
-// Configure Multer for file uploads
+// Multer storage setup for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Directory to store uploaded files
+    cb(null, 'uploads/'); // Store files in 'uploads' directory
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
@@ -91,18 +91,22 @@ const storage = multer.diskStorage({
   }
 });
 
+// File filter to allow only specific file types (PNG, JPG, JPEG, SVG)
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only PNG, JPG, JPEG, and SVG are allowed.'));
+  }
+};
+
+// Initialize Multer for handling file uploads (max 10MB file size)
 const upload = multer({
   storage,
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PNG, JPG, JPEG, and SVG are allowed.'));
-    }
-  }
+  fileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max size
 });
-
 // Middleware to protect routes
 
 const verifyToken = (req, res, next) => {
@@ -250,13 +254,13 @@ app.post('/api/update-situation', verifyToken, async (req, res) => {
 });
 
 // API Endpoint for Uploading Icon and Splash Icon
-app.post('/api/upload-icons', upload.fields([{ name: 'icon' }, { name: 'splash_icon' }]), async (req, res) => {
+app.post('/api/upload-icons', verifyToken, upload.fields([{ name: 'icon' }, { name: 'splash_icon' }]), async (req, res) => {
   try {
     const { user_id } = req.body;
 
-    // Validate user_id
-    if (!user_id) {
-      return res.status(400).json({ message: 'User ID is required.' });
+    // Check if user_id in request body matches the authenticated user's ID
+    if (user_id !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized. You can only upload for your own account.' });
     }
 
     // Validate uploaded files
@@ -270,7 +274,7 @@ app.post('/api/upload-icons', upload.fields([{ name: 'icon' }, { name: 'splash_i
     const iconPath = iconFile.filename;
     const splashIconPath = splashIconFile.filename;
 
-    // Update database (Assuming you have columns named `icon` and `splash_icon` in your schema)
+    // Update database (Assuming you have columns named 'icon' and 'splash_icon' in your schema)
     const query = `
       UPDATE your_table_name
       SET icon = $1, splash_icon = $2
