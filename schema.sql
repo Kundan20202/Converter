@@ -12,7 +12,7 @@ CREATE TABLE apps (
     visitors TEXT DEFAULT 0,
     country VARCHAR(50) DEFAULT NULL,
     icon TEXT DEFAULT NULL,
-    splash_image TEXT DEFAULT NULL,
+    splash_icon TEXT DEFAULT NULL,
     customization VARCHAR(255) DEFAULT NULL,
     features TEXT DEFAULT NULL,
     app_design TEXT DEFAULT NULL,
