@@ -345,37 +345,35 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
     }
 });
 
-// User login route (POST)
-app.post('/api/login', async (req, res) => {
+// Login Route
+router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
+    // Validate inputs
     if (!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required' });
+        return res.status(400).json({ error: "Email and password are required" });
     }
 
-    try {
-        const result = await pool.query('SELECT * FROM apps WHERE email = $1', [email]);
-        const user = result.rows[0];
-
-        if (!user) {
-            return res.status(400).json({ message: 'User not found' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-
-        // Create JWT token
-        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' }); // Token expires in 1 hour
-        res.status(200).json({ message: 'Login successful', token });
-
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Internal server error' });
+    // Find user in the database
+    const user = users.find((u) => u.email === email);
+    if (!user) {
+        return res.status(401).json({ error: "Invalid email or password" });
     }
+
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+        return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET,);
+
+    // Respond with the token
+    res.status(200).json({ message: "Login successful", token });
 });
+
+module.exports = router;
 
 
 // Update Company Details
