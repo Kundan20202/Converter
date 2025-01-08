@@ -239,31 +239,55 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/update-company-details', verifyToken, async (req, res) => {
     const { app_name, app_type, visitors, country } = req.body;
 
-    // Validate input fields
-    if (!app_name || !app_type || !visitors || !country) {
-        return res.status(400).json({ message: 'All fields are required' });
+    // Check if at least one field is provided
+    if (!app_name && !app_type && !visitors && !country) {
+        return res.status(400).json({ message: 'At least one field must be provided for update.' });
     }
 
     try {
-        // Update the user details in the database
+        // Construct the dynamic query
+        const fields = [];
+        const values = [];
+        let fieldIndex = 1;
+
+        if (app_name) {
+            fields.push(`app_name = $${fieldIndex++}`);
+            values.push(app_name);
+        }
+        if (app_type) {
+            fields.push(`app_type = $${fieldIndex++}`);
+            values.push(app_type);
+        }
+        if (visitors) {
+            fields.push(`visitors = $${fieldIndex++}`);
+            values.push(visitors);
+        }
+        if (country) {
+            fields.push(`country = $${fieldIndex++}`);
+            values.push(country);
+        }
+
+        // Append userId for the WHERE clause
+        values.push(req.userId);
+
+        // Join fields for the SET clause
         const query = `
             UPDATE apps
-            SET app_name = $1, app_type = $2, visitors = $3, country = $4
-            WHERE id = $5
+            SET ${fields.join(', ')}
+            WHERE id = $${fieldIndex}
             RETURNING *;
         `;
-        const values = [app_name, app_type, visitors, country, req.userId];
 
         // Execute the query
         const result = await pool.query(query, values);
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'User not found or no changes made' });
+            return res.status(404).json({ message: 'User not found or no changes made.' });
         }
 
         // Respond with the updated user details
         res.status(200).json({
-            message: 'Company details updated successfully',
+            message: 'Company details updated successfully.',
             user: result.rows[0],
         });
     } catch (error) {
@@ -271,6 +295,7 @@ app.post('/api/update-company-details', verifyToken, async (req, res) => {
         res.status(500).json({ message: 'Internal server error', error: error.message });
     }
 });
+
 
 
 
