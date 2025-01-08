@@ -80,33 +80,24 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
   }
 })();
 
-// Multer storage setup for file uploads
+
+// Serve static files from the 'uploads' directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
+// Store Uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Store files in 'uploads' directory
+    cb(null, 'uploads/'); // All files go into the 'uploads' directory
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
     cb(null, `${uniqueSuffix}-${file.originalname}`);
-  }
+  },
 });
 
-// File filter to allow only specific file types (PNG, JPG, JPEG, SVG)
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only PNG, JPG, JPEG, and SVG are allowed.'));
-  }
-};
 
-// Initialize Multer for handling file uploads (max 10MB file size)
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max size
-});
+
 // Middleware to protect routes
 
 const verifyToken = (req, res, next) => {
@@ -254,46 +245,49 @@ app.post('/api/update-situation', verifyToken, async (req, res) => {
 });
 
 // API Endpoint for Uploading Icon and Splash Icon
-app.post('/api/upload-icons', verifyToken, upload.fields([{ name: 'icon' }, { name: 'splash_icon' }]), async (req, res) => {
-  try {
-    const { user_id } = req.body;
+app.post(
+  '/api/upload-icons',
+  verifyToken,
+  upload.fields([{ name: 'icon' }, { name: 'splash_icon' }]),
+  async (req, res) => {
+    try {
+      const { user_id } = req.body;
+      const iconFile = req.files?.icon?.[0];
+      const splashIconFile = req.files?.splash_icon?.[0];
 
-    // Check if user_id in request body matches the authenticated user's ID
-    if (user_id !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized. You can only upload for your own account.' });
+      if (!iconFile || !splashIconFile) {
+        return res.status(400).json({
+          message: 'Both icon and splash icon files are required.',
+        });
+      }
+
+      const iconPath = iconFile.filename;
+      const splashIconPath = splashIconFile.filename;
+
+      const result = await pool.query(
+        `
+        UPDATE apps
+        SET icon = $1, splash_icon = $2
+        WHERE id = $3 RETURNING *;
+        `,
+        [iconPath, splashIconPath, req.userId]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+
+      res.status(200).json({
+        message: 'Files uploaded and database updated successfully.',
+        user: result.rows[0],
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'An error occurred.', error: error.message });
     }
-
-    // Validate uploaded files
-    const iconFile = req.files?.icon?.[0];
-    const splashIconFile = req.files?.splash_icon?.[0];
-
-    if (!iconFile || !splashIconFile) {
-      return res.status(400).json({ message: 'Both icon and splash icon files are required.' });
-    }
-
-    const iconPath = iconFile.filename;
-    const splashIconPath = splashIconFile.filename;
-
-    // Update database (Assuming you have columns named 'icon' and 'splash_icon' in your schema)
-    const query = `
-      UPDATE your_table_name
-      SET icon = $1, splash_icon = $2
-      WHERE user_id = $3
-    `;
-    const values = [iconPath, splashIconPath, user_id];
-
-    const result = await pool.query(query, values);
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    res.status(200).json({ message: 'Files uploaded and database updated successfully.' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'An error occurred.', error: error.message });
   }
-});
+);
+
 
 
 // Route: Update Features, App Design, and Customization
