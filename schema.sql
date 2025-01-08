@@ -16,6 +16,7 @@ CREATE TABLE apps (
     customization VARCHAR(255) DEFAULT NULL,
     features TEXT DEFAULT NULL,
     app_design TEXT DEFAULT NULL,
+    app_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
