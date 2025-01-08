@@ -346,7 +346,7 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
 });
 
 // Login Route
-router.post("/login", async (req, res) => {
+app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     // Validate inputs
