@@ -236,42 +236,42 @@ app.post('/api/login', async (req, res) => {
 
 
 // Update Company Details
-// Update Company Details (Updating Columns)
 app.post('/api/update-company-details', verifyToken, async (req, res) => {
+    const { app_name, app_type, visitors, country } = req.body;
+
+    // Validate input fields
+    if (!app_name || !app_type || !visitors || !country) {
+        return res.status(400).json({ message: 'All fields are required' });
+    }
+
     try {
-        const { app_name, app_type, visitors, country } = req.body;
-
-        // Check if all required fields are provided
-        if (!app_name || !app_type || !visitors || !country) {
-            return res.status(400).json({ message: 'All fields are required' });
-        }
-
-        // Update the database
+        // Update the user details in the database
         const query = `
-            UPDATE users
-            SET app_name = ?, app_type = ?, visitors = ?, country = ?
-            WHERE id = ?;
+            UPDATE apps
+            SET app_name = $1, app_type = $2, visitors = $3, country = $4
+            WHERE id = $5
+            RETURNING *;
         `;
         const values = [app_name, app_type, visitors, country, req.userId];
 
-        // Assuming you're using a MySQL connection
-        db.query(query, values, (err, result) => {
-            if (err) {
-                console.error('Error updating details:', err);
-                return res.status(500).json({ message: 'Internal server error' });
-            }
+        // Execute the query
+        const result = await pool.query(query, values);
 
-            if (result.affectedRows === 0) {
-                return res.status(400).json({ message: 'No updates were made. Check if the user exists or data is unchanged.' });
-            }
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found or no changes made' });
+        }
 
-            res.status(200).json({ message: 'Details updated successfully' });
+        // Respond with the updated user details
+        res.status(200).json({
+            message: 'Company details updated successfully',
+            user: result.rows[0],
         });
     } catch (error) {
-        console.error('Unexpected error:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error('Error updating company details:', error);
+        res.status(500).json({ message: 'Internal server error', error: error.message });
     }
 });
+
 
 
 
