@@ -226,6 +226,60 @@ app.post('/api/update-situation', verifyToken, async (req, res) => {
     }
 });
 
+// Route: Update Features, App Design, and Customization
+app.post('/api/update-preferences', verifyToken, async (req, res) => {
+    try {
+        const { features, app_design, customization } = req.body;
+
+        // Validate features (must be an array with 1-5 items)
+        if (!Array.isArray(features) || features.length === 0 || features.length > 5) {
+            return res.status(400).json({
+                message: 'Features must be an array with up to 5 items.',
+            });
+        }
+
+        // Validate app_design (required field)
+        if (!app_design) {
+            return res.status(400).json({
+                message: 'App design selection is required.',
+            });
+        }
+
+        // Update the database
+        const result = await pool.query(
+            `
+            UPDATE apps 
+            SET features = $1, app_design = $2, customization = $3 
+            WHERE id = $4 
+            RETURNING *;
+            `,
+            [
+                features.join(','), // Store as a comma-separated string
+                app_design,
+                customization || null, // Allow null for optional customization
+                req.userId,
+            ]
+        );
+
+        // Check if a row was updated
+        if (result.rowCount === 0) {
+            return res.status(400).json({
+                message: 'No updates were made. User may not exist.',
+            });
+        }
+
+        res.status(200).json({
+            message: 'Preferences updated successfully!',
+            user: result.rows[0], // Returning the updated user data
+        });
+    } catch (error) {
+        console.error('Error updating preferences:', error);
+        res.status(500).json({
+            message: 'Failed to update preferences.',
+            error: error.message,
+        });
+    }
+});
 
 // User login route (POST)
 app.post('/api/login', async (req, res) => {
