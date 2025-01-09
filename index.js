@@ -213,9 +213,9 @@ app.post('/api/update-situation', verifyToken, async (req, res) => {
 
         // Allowed values for the situation
         const allowedSituations = [
-            'growing business.',
-            'established business.',
-            'just getting started',
+            'growing_business',
+            'established_business',
+            'just_getting_started',
         ];
 
         // Check if the provided situation is valid
