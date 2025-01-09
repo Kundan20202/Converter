@@ -1,4 +1,4 @@
--- Create the apps table only if it doesn't already exist
+-- Ensure the table exists
 CREATE TABLE IF NOT EXISTS apps (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255),
@@ -20,30 +20,19 @@ CREATE TABLE IF NOT EXISTS apps (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Ensure the trigger function exists
-DO $$
+-- Create or replace the trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_updated_at_column') THEN
-        CREATE OR REPLACE FUNCTION update_updated_at_column()
-        RETURNS TRIGGER AS $$
-        BEGIN
-           NEW.updated_at = CURRENT_TIMESTAMP;
-           RETURN NEW;
-        END;
-        $$ LANGUAGE plpgsql;
-    END IF;
-END $$;
+   NEW.updated_at = CURRENT_TIMESTAMP;
+   RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- Ensure the trigger exists
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_trigger
-        WHERE tgname = 'set_updated_at'
-    ) THEN
-        CREATE TRIGGER set_updated_at
-        BEFORE UPDATE ON apps
-        FOR EACH ROW
-        EXECUTE FUNCTION update_updated_at_column();
-    END IF;
-END $$;
+-- Drop the trigger if it exists, then recreate it
+DROP TRIGGER IF EXISTS set_updated_at ON apps;
+
+CREATE TRIGGER set_updated_at
+BEFORE UPDATE ON apps
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
