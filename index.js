@@ -390,6 +390,27 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Route: Retrieve User Data
+app.get('/api/user-data', verifyToken, async (req, res) => {
+    try {
+        // Use the userId from the verified token
+        const userId = req.userId;
+
+        // Query the database for the user
+        const result = await pool.query('SELECT * FROM apps WHERE id = $1', [userId]);
+
+        // Handle case where no user is found
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Send back the user's data
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error retrieving user data:', error);
+        res.status(500).json({ message: 'Failed to retrieve user data', error: error.message });
+    }
+});
 
 
 // Update Company Details
