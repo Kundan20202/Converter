@@ -62,7 +62,7 @@ const s3 = new S3Client({
 const app = express();
 const port = process.env.PORT || 5000;
 app.use(express.json());
-const upload = multer({ dest: 'uploads/' });
+
 
 // Convert __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -96,7 +96,8 @@ const storage = multer.diskStorage({
     cb(null, fileName); // Save the file with the correct name and extension
   }
 });
-
+// Set multer to use the storage configuration
+const upload = multer({ storage });
 
 // Middleware to protect routes
 
@@ -289,6 +290,8 @@ app.post(
     }
   }
 );
+
+
 // API to Get User's Icon and Splash Icon
 app.get('/api/get-icons', verifyToken, async (req, res) => {
   try {
