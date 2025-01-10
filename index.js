@@ -289,6 +289,43 @@ app.post(
 );
 
 
+// API to Get User's Icon and Splash Icon
+app.get('/api/get-icons', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT icon, splash_icon
+      FROM apps
+      WHERE id = $1
+      `,
+      [req.userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const user = result.rows[0];
+
+    // Construct the URLs for icon and splash_icon if available
+    const iconUrl = user.icon ? `https://converter-fkz7.onrender.com/uploads/${user.icon}` : null;
+    const splashIconUrl = user.splash_icon ? `https://converter-fkz7.onrender.com/uploads/${user.splash_icon}` : null;
+
+    res.status(200).json({
+      message: 'User icons retrieved successfully!',
+      icons: {
+        icon: iconUrl,
+        splash_icon: splashIconUrl
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'An error occurred.', error: error.message });
+  }
+});
+
+
+
 
 // Route: Update Features, App Design, and Customization
 app.post('/api/update-preferences', verifyToken, async (req, res) => {
