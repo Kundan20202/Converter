@@ -85,18 +85,19 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
-// Define storage strategy for multer
+// Define the storage strategy for multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, './uploads'); // Adjust the folder path for uploads
+    cb(null, './uploads'); // Folder where files will be uploaded
   },
   filename: (req, file, cb) => {
     const fileExt = path.extname(file.originalname); // Get the file extension
-    const fileName = Date.now() + fileExt; // Create a unique filename using timestamp and file extension
-    cb(null, fileName); // Save the file with the correct extension
+    const fileName = Date.now() + fileExt; // Use a unique filename with the original extension
+    cb(null, fileName); // Save the file with the correct name and extension
   }
 });
 
+const upload = multer({ storage });
 
 // Middleware to protect routes
 
@@ -245,12 +246,14 @@ app.post('/api/update-situation', verifyToken, async (req, res) => {
 });
 
 // API Endpoint for Uploading Icon and Splash Icon
+// API Endpoint for Uploading Icon and Splash Icon
 app.post(
   '/api/upload-icons',
   verifyToken,
   upload.fields([{ name: 'icon' }, { name: 'splash_icon' }]),
   async (req, res) => {
     try {
+      const { user_id } = req.body;
       const iconFile = req.files?.icon?.[0];
       const splashIconFile = req.files?.splash_icon?.[0];
 
@@ -260,7 +263,7 @@ app.post(
         });
       }
 
-      // Store the file paths (with extensions)
+      // Get the file paths with the correct extensions
       const iconPath = iconFile.filename;
       const splashIconPath = splashIconFile.filename;
 
@@ -288,7 +291,6 @@ app.post(
     }
   }
 );
-
 
 // API to Get User's Icon and Splash Icon
 app.get('/api/get-icons', verifyToken, async (req, res) => {
