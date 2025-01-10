@@ -85,17 +85,17 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
-// Store Uploads
+// Define storage strategy for multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // All files go into the 'uploads' directory
+    cb(null, './uploads'); // Adjust the folder path for uploads
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    cb(null, `${uniqueSuffix}-${file.originalname}`);
-  },
+    const fileExt = path.extname(file.originalname); // Get the file extension
+    const fileName = Date.now() + fileExt; // Create a unique filename using timestamp and file extension
+    cb(null, fileName); // Save the file with the correct extension
+  }
 });
-
 
 
 // Middleware to protect routes
