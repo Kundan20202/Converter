@@ -81,6 +81,19 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 })();
 
 
+
+// Ensure the 'uploads' folder exists
+const uploadsDir = path.join(__dirname, 'uploads');
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true }); // Create the folder if it doesn't exist
+  console.log(`Created 'uploads' directory at ${uploadsDir}`);
+}
+
+// Set appropriate permissions for the 'uploads' folder
+fs.chmodSync(uploadsDir, 0o755); // Read, write, execute for owner; read, execute for group and others
+
+
 // Serve static files from the 'uploads' directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
