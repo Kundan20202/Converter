@@ -245,7 +245,6 @@ app.post('/api/update-situation', verifyToken, async (req, res) => {
 });
 
 // API Endpoint for Uploading Icon and Splash Icon
-// API Endpoint for Uploading Icon and Splash Icon
 app.post(
   '/api/upload-icons',
   verifyToken,
@@ -290,7 +289,6 @@ app.post(
     }
   }
 );
-
 // API to Get User's Icon and Splash Icon
 app.get('/api/get-icons', verifyToken, async (req, res) => {
   try {
