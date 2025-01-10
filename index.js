@@ -251,7 +251,6 @@ app.post(
   upload.fields([{ name: 'icon' }, { name: 'splash_icon' }]),
   async (req, res) => {
     try {
-      const { user_id } = req.body;
       const iconFile = req.files?.icon?.[0];
       const splashIconFile = req.files?.splash_icon?.[0];
 
@@ -261,9 +260,11 @@ app.post(
         });
       }
 
+      // Store the file paths (with extensions)
       const iconPath = iconFile.filename;
       const splashIconPath = splashIconFile.filename;
 
+      // Update the database with the file paths
       const result = await pool.query(
         `
         UPDATE apps
