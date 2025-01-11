@@ -592,12 +592,14 @@ app.get('/submission', async (req, res) => {
   }
 });
 
-// Update User Details
 app.post('/api/update-user-details', verifyToken, async (req, res) => {
     const { name, app_name, country } = req.body;
 
-    // Check if at least one field is provided
-    if (!name && !app_name && !country) {
+    // Debugging: Log the request body to confirm it contains data
+    console.log('Request body:', req.body);
+
+    // Check if the body is empty or missing required fields
+    if (!req.body || (name === undefined && app_name === undefined && country === undefined)) {
         return res.status(400).json({ message: 'At least one field must be provided for update.' });
     }
 
@@ -607,15 +609,15 @@ app.post('/api/update-user-details', verifyToken, async (req, res) => {
         const values = [];
         let fieldIndex = 1;
 
-        if (name) {
+        if (name !== undefined) {
             fields.push(`name = $${fieldIndex++}`);
             values.push(name);
         }
-        if (app_name) {
+        if (app_name !== undefined) {
             fields.push(`app_name = $${fieldIndex++}`);
             values.push(app_name);
         }
-        if (country) {
+        if (country !== undefined) {
             fields.push(`country = $${fieldIndex++}`);
             values.push(country);
         }
