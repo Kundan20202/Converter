@@ -594,9 +594,14 @@ app.get('/submission', async (req, res) => {
 
 // Update Account Details
 app.post('/api/update-account-details', verifyToken, async (req, res) => {
+    // Debugging: Log request body and user ID
+    console.log('Request Body:', req.body);
+    console.log('User ID from Token:', req.userId);
+
+    // Destructure the fields from the request body
     const { name, app_name, country } = req.body;
 
-    // Check if at least one field is provided
+    // Validate at least one field is provided
     if (!name && !app_name && !country) {
         return res.status(400).json({ message: 'At least one field must be provided for update.' });
     }
@@ -634,21 +639,22 @@ app.post('/api/update-account-details', verifyToken, async (req, res) => {
         // Execute the query
         const result = await pool.query(query, values);
 
-        if (result.rows.length === 0) {
+        // Check if the user exists and the update was successful
+        if (result.rowCount === 0) {
             return res.status(404).json({ message: 'User not found or no changes made.' });
         }
 
         // Respond with the updated user details
         res.status(200).json({
             message: 'Account details updated successfully.',
-            user: result.rows[0],
+            user: result.rows[0], // Return the updated user details
         });
     } catch (error) {
+        // Log error and respond with a 500 status
         console.error('Error updating account details:', error);
         res.status(500).json({ message: 'Internal server error', error: error.message });
     }
 });
-
 
 
 
