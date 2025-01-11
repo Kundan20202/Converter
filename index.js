@@ -591,17 +591,8 @@ app.get('/submission', async (req, res) => {
 
 
 // Update Account Details
-
-app.post('/api/submit-user-details', verifyToken, async (req, res) => {
-    // Log the incoming request body to debug
-    console.log("Incoming Request Body:", req.body);
-
+app.post('/api/update-account-details', verifyToken, async (req, res) => {
     const { name, app_name, country } = req.body;
-
-    // Log individual fields for debugging
-    console.log("Name:", name);
-    console.log("App Name:", app_name);
-    console.log("Country:", country);
 
     // Check if at least one field is provided
     if (
@@ -618,7 +609,6 @@ app.post('/api/submit-user-details', verifyToken, async (req, res) => {
         const values = [];
         let fieldIndex = 1;
 
-        // Add fields to be updated if provided
         if (name) {
             fields.push(`name = $${fieldIndex++}`);
             values.push(name);
@@ -632,12 +622,12 @@ app.post('/api/submit-user-details', verifyToken, async (req, res) => {
             values.push(country);
         }
 
-        // Append userId for the WHERE clause
+        // Append userId (assuming your verifyToken middleware provides req.userId)
         values.push(req.userId);
 
-        // Build the SQL query dynamically
+        // Construct the query to update the `apps` table
         const query = `
-            UPDATE users
+            UPDATE apps
             SET ${fields.join(', ')}
             WHERE id = $${fieldIndex}
             RETURNING *;
@@ -646,22 +636,21 @@ app.post('/api/submit-user-details', verifyToken, async (req, res) => {
         // Execute the query
         const result = await pool.query(query, values);
 
-        // Check if the user was found and updated
         if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'User not found or no changes made.' });
+            return res.status(404).json({ message: 'App not found or no changes made.' });
         }
 
-        // Respond with the updated user details
+        // Respond with the updated app details
         res.status(200).json({
-            message: 'User details submitted successfully.',
-            user: result.rows[0],
+            message: 'App details submitted successfully.',
+            app: result.rows[0],
         });
     } catch (error) {
-        // Log error and send response
-        console.error('Error submitting user details:', error);
+        console.error('Error submitting app details:', error);
         res.status(500).json({ message: 'Internal server error', error: error.message });
     }
 });
+
 
 
 
