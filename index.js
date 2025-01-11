@@ -81,36 +81,35 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 })();
 
 
-
 // Ensure the 'uploads' folder exists
-const uploadsDir = path.join(__dirname, 'uploads');
-
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true }); // Create the folder if it doesn't exist
+  fs.mkdirSync(uploadsDir, { recursive: true });
   console.log(`Created 'uploads' directory at ${uploadsDir}`);
 }
 
 // Set appropriate permissions for the 'uploads' folder
-fs.chmodSync(uploadsDir, 0o755); // Read, write, execute for owner; read, execute for group and others
+fs.chmodSync(uploadsDir, 0o755);
 
-
-// Serve static files from the 'uploads' directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-
-// Define the storage strategy for multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, './uploads'); // Folder where files will be uploaded
+// Serve static files with cache control
+app.use('/uploads', express.static(uploadsDir, {
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   },
-  filename: (req, file, cb) => {
-    const fileExt = path.extname(file.originalname); // Get the file extension
-    const fileName = Date.now() + fileExt; // Use a unique filename with the original extension
-    cb(null, fileName); // Save the file with the correct name and extension
-  }
+}));
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname)}`),
 });
-// Set multer to use the storage configuration
-const upload = multer({ storage });
+
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    allowedMimeTypes.includes(file.mimetype) ? cb(null, true) : cb(new Error('Invalid file type'));
+  },
+});
+
 
 // Middleware to protect routes
 
