@@ -590,16 +590,24 @@ app.get('/submission', async (req, res) => {
 
 
 
-
+// Update Account Details
 
 app.post('/api/submit-user-details', verifyToken, async (req, res) => {
+    // Log the incoming request body to debug
+    console.log("Incoming Request Body:", req.body);
+
     const { name, app_name, country } = req.body;
+
+    // Log individual fields for debugging
+    console.log("Name:", name);
+    console.log("App Name:", app_name);
+    console.log("Country:", country);
 
     // Check if at least one field is provided
     if (
-        (name === undefined || name === null) &&
-        (app_name === undefined || app_name === null) &&
-        (country === undefined || country === null)
+        (name === undefined || name === null || name === '') &&
+        (app_name === undefined || app_name === null || app_name === '') &&
+        (country === undefined || country === null || country === '')
     ) {
         return res.status(400).json({ message: 'At least one field must be provided for submission.' });
     }
@@ -610,6 +618,7 @@ app.post('/api/submit-user-details', verifyToken, async (req, res) => {
         const values = [];
         let fieldIndex = 1;
 
+        // Add fields to be updated if provided
         if (name) {
             fields.push(`name = $${fieldIndex++}`);
             values.push(name);
@@ -626,7 +635,7 @@ app.post('/api/submit-user-details', verifyToken, async (req, res) => {
         // Append userId for the WHERE clause
         values.push(req.userId);
 
-        // Join fields for the SET clause
+        // Build the SQL query dynamically
         const query = `
             UPDATE users
             SET ${fields.join(', ')}
@@ -637,6 +646,7 @@ app.post('/api/submit-user-details', verifyToken, async (req, res) => {
         // Execute the query
         const result = await pool.query(query, values);
 
+        // Check if the user was found and updated
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'User not found or no changes made.' });
         }
@@ -647,6 +657,7 @@ app.post('/api/submit-user-details', verifyToken, async (req, res) => {
             user: result.rows[0],
         });
     } catch (error) {
+        // Log error and send response
         console.error('Error submitting user details:', error);
         res.status(500).json({ message: 'Internal server error', error: error.message });
     }
