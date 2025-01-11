@@ -596,7 +596,11 @@ app.post('/api/submit-user-details', verifyToken, async (req, res) => {
     const { name, app_name, country } = req.body;
 
     // Check if at least one field is provided
-    if (!name && !app_name && !country) {
+    if (
+        (name === undefined || name === null) &&
+        (app_name === undefined || app_name === null) &&
+        (country === undefined || country === null)
+    ) {
         return res.status(400).json({ message: 'At least one field must be provided for submission.' });
     }
 
@@ -647,6 +651,7 @@ app.post('/api/submit-user-details', verifyToken, async (req, res) => {
         res.status(500).json({ message: 'Internal server error', error: error.message });
     }
 });
+
 
 
 
