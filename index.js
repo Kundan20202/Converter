@@ -592,6 +592,66 @@ app.get('/submission', async (req, res) => {
   }
 });
 
+// Update Account Details
+app.post('/api/update-account-details', verifyToken, async (req, res) => {
+    const { name, app_name, country } = req.body;
+
+    // Check if at least one field is provided
+    if (!name && !app_name && !country) {
+        return res.status(400).json({ message: 'At least one field must be provided for update.' });
+    }
+
+    try {
+        // Construct the dynamic query
+        const fields = [];
+        const values = [];
+        let fieldIndex = 1;
+
+        if (name) {
+            fields.push(`name = $${fieldIndex++}`);
+            values.push(name);
+        }
+        if (app_name) {
+            fields.push(`app_name = $${fieldIndex++}`);
+            values.push(app_name);
+        }
+        if (country) {
+            fields.push(`country = $${fieldIndex++}`);
+            values.push(country);
+        }
+
+        // Append userId for the WHERE clause
+        values.push(req.userId);
+
+        // Join fields for the SET clause
+        const query = `
+            UPDATE apps
+            SET ${fields.join(', ')}
+            WHERE id = $${fieldIndex}
+            RETURNING *;
+        `;
+
+        // Execute the query
+        const result = await pool.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found or no changes made.' });
+        }
+
+        // Respond with the updated user details
+        res.status(200).json({
+            message: 'Account details updated successfully.',
+            user: result.rows[0],
+        });
+    } catch (error) {
+        console.error('Error updating account details:', error);
+        res.status(500).json({ message: 'Internal server error', error: error.message });
+    }
+});
+
+
+
+
 // Route: Generate App (Trigger EAS Build)
 app.post('/generate-app', async (req, res) => {
   const { name, website } = req.body;
