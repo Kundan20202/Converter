@@ -81,6 +81,9 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 })();
 
 
+// Define 'uploadsDir' at the top of the file
+const uploadsDir = path.join(__dirname, 'uploads');
+
 // Ensure the 'uploads' folder exists
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -584,15 +587,17 @@ app.get('/submission', async (req, res) => {
   }
 });
 
-app.post('/api/update-user-details', verifyToken, async (req, res) => {
+
+
+
+
+
+app.post('/api/submit-user-details', verifyToken, async (req, res) => {
     const { name, app_name, country } = req.body;
 
-    // Debugging: Log the request body to confirm it contains data
-    console.log('Request body:', req.body);
-
-    // Check if the body is empty or missing required fields
-    if (!req.body || (name === undefined && app_name === undefined && country === undefined)) {
-        return res.status(400).json({ message: 'At least one field must be provided for update.' });
+    // Check if at least one field is provided
+    if (!name && !app_name && !country) {
+        return res.status(400).json({ message: 'At least one field must be provided for submission.' });
     }
 
     try {
@@ -601,15 +606,15 @@ app.post('/api/update-user-details', verifyToken, async (req, res) => {
         const values = [];
         let fieldIndex = 1;
 
-        if (name !== undefined) {
+        if (name) {
             fields.push(`name = $${fieldIndex++}`);
             values.push(name);
         }
-        if (app_name !== undefined) {
+        if (app_name) {
             fields.push(`app_name = $${fieldIndex++}`);
             values.push(app_name);
         }
-        if (country !== undefined) {
+        if (country) {
             fields.push(`country = $${fieldIndex++}`);
             values.push(country);
         }
@@ -619,7 +624,7 @@ app.post('/api/update-user-details', verifyToken, async (req, res) => {
 
         // Join fields for the SET clause
         const query = `
-            UPDATE apps
+            UPDATE users
             SET ${fields.join(', ')}
             WHERE id = $${fieldIndex}
             RETURNING *;
@@ -634,14 +639,15 @@ app.post('/api/update-user-details', verifyToken, async (req, res) => {
 
         // Respond with the updated user details
         res.status(200).json({
-            message: 'User details updated successfully.',
+            message: 'User details submitted successfully.',
             user: result.rows[0],
         });
     } catch (error) {
-        console.error('Error updating user details:', error);
+        console.error('Error submitting user details:', error);
         res.status(500).json({ message: 'Internal server error', error: error.message });
     }
 });
+
 
 
 
