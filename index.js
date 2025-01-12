@@ -592,14 +592,13 @@ app.get('/submission', async (req, res) => {
 
 // Update Account Details
 app.post('/api/submit-app-details', verifyToken, async (req, res) => {
-    const { name, app_name, country, email } = req.body;
+    const { name, app_name, country } = req.body;
 
     // Check if at least one field is provided
     if (
         (name === undefined || name === null || name === '') &&
         (app_name === undefined || app_name === null || app_name === '') &&
-        (country === undefined || country === null || country === '') &&
-        (email === undefined || email === null || email === '')
+        (country === undefined || country === null || country === '')
     ) {
         return res.status(400).json({ message: 'At least one field must be provided for submission.' });
     }
@@ -621,10 +620,6 @@ app.post('/api/submit-app-details', verifyToken, async (req, res) => {
         if (country) {
             fields.push(`country = $${fieldIndex++}`);
             values.push(country);
-        }
-        if (email) {
-            fields.push(`email = $${fieldIndex++}`);
-            values.push(email);
         }
 
         // Append userId (assuming your verifyToken middleware provides req.userId)
