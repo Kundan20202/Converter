@@ -591,7 +591,7 @@ app.get('/submission', async (req, res) => {
 
 
 // Update Account Details
-app.post('/api/submit-app-details', verifyToken, async (req, res) => {
+app.post('/api/update-account-details', verifyToken, async (req, res) => {
     const { name, app_name, country } = req.body;
 
     // Check if at least one field is provided
