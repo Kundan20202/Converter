@@ -658,6 +658,7 @@ app.post('/api/update-account-details', verifyToken, async (req, res) => {
 
 
 
+
 // Route: Generate App (Trigger EAS Build)
 app.post('/generate-app', async (req, res) => {
   const { name, website } = req.body;
@@ -667,33 +668,28 @@ app.post('/generate-app', async (req, res) => {
   }
 
   try {
+    // Path to `app.json`
     const appJsonPath = path.join(__dirname, 'app.json');
 
-    if (!fs.existsSync(appJsonPath)) {
-      console.error("app.json file not found at:", appJsonPath);
-      return res.status(500).json({ success: false, message: "app.json file not found." });
-    }
-
+    // Read and update `app.json`
     const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf-8'));
     appJson.expo.name = name;
-    appJson.expo.extra = { website };
+    appJson.expo.extra = { website }; // Add extra field for website
     fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
 
     console.log("app.json updated successfully!");
 
-    // Respond immediately with success while processing the build in the background
-    res.json({ success: true, message: "App generation initiated. The build is being processed." });
-
-    // Trigger the build asynchronously
-    exec('eas build --platform android --profile production', { cwd: __dirname, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+    // Trigger EAS build
+    exec('eas build --platform android --profile production', { cwd: __dirname }, (err, stdout, stderr) => {
       if (err) {
-        console.error("Error during EAS build:", stderr || err.message);
-        return; // Don't send response since it's already sent
+        console.error("Error during EAS build:", stderr);
+        return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
       }
 
+      // Parse EAS build response
       const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
       if (!buildLinkMatch) {
-        return;
+        return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
       }
 
       const buildLink = buildLinkMatch[0];
@@ -705,20 +701,20 @@ app.post('/generate-app', async (req, res) => {
         [buildLink, website],
         (dbErr, dbResult) => {
           if (dbErr) {
-            console.error("Database update error:", dbErr.stack || dbErr.message);
-            return;
+            console.error("Database update error:", dbErr);
+            return res.status(500).json({ success: false, message: "Failed to update database." });
           }
-          console.log("App URL updated in database:", buildLink);
+
+          // Return the app download link
+          res.json({ success: true, message: "App generated successfully!", link: buildLink });
         }
       );
     });
-
   } catch (error) {
     console.error("Error in generate-app:", error);
     res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
   }
 });
-
 
 // Start the server
 app.listen(port, () => {
