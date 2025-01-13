@@ -665,53 +665,64 @@ app.post('/generate-app', async (req, res) => {
   }
 
   try {
-    // Path to `app.json`
     const appJsonPath = path.join(__dirname, 'app.json');
 
-    // Read and update `app.json`
+    if (!fs.existsSync(appJsonPath)) {
+      console.error("app.json file not found at:", appJsonPath);
+      return res.status(500).json({ success: false, message: "app.json file not found." });
+    }
+
     const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf-8'));
     appJson.expo.name = name;
-    appJson.expo.extra = { website }; // Add extra field for website
+    appJson.expo.extra = { website };
     fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
 
     console.log("app.json updated successfully!");
 
-    // Trigger EAS build
-    exec('eas build --platform android --profile production', { cwd: __dirname }, (err, stdout, stderr) => {
-      if (err) {
-        console.error("Error during EAS build:", stderr);
-        return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
-      }
-
-      // Parse EAS build response
-      const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
-      if (!buildLinkMatch) {
-        return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
-      }
-
-      const buildLink = buildLinkMatch[0];
-      console.log("Build link:", buildLink);
-
-      // Store app_url in the database
-      pool.query(
-        'UPDATE apps SET app_url = $1 WHERE website = $2 RETURNING *',
-        [buildLink, website],
-        (dbErr, dbResult) => {
-          if (dbErr) {
-            console.error("Database update error:", dbErr);
-            return res.status(500).json({ success: false, message: "Failed to update database." });
-          }
-
-          // Return the app download link
-          res.json({ success: true, message: "App generated successfully!", link: buildLink });
+    const retryBuild = (retries) => {
+      exec('eas build --platform android --profile production', { cwd: __dirname, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+        if (err && retries > 0) {
+          console.warn("Build failed, retrying... Remaining retries:", retries);
+          return retryBuild(retries - 1);
         }
-      );
-    });
+        if (err) {
+          console.error("Build failed after retries:", stderr || err.message);
+          return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr || err.message, output: stdout });
+        }
+
+        const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
+        if (!buildLinkMatch) {
+          return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
+        }
+
+        const buildLink = buildLinkMatch[0];
+        console.log("Build link:", buildLink);
+
+        pool.query(
+          'UPDATE apps SET app_url = $1 WHERE website = $2 RETURNING *',
+          [buildLink, website],
+          (dbErr, dbResult) => {
+            if (dbErr) {
+              console.error("Database update error:", dbErr.stack || dbErr.message);
+              return res.status(500).json({ success: false, message: "Failed to update database." });
+            }
+            if (dbResult.rowCount === 0) {
+              return res.status(404).json({ success: false, message: "Website not found in database." });
+            }
+
+            res.json({ success: true, message: "App generated successfully!", link: buildLink });
+          }
+        );
+      });
+    };
+
+    retryBuild(3);
   } catch (error) {
     console.error("Error in generate-app:", error);
     res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
   }
 });
+
 
 // Start the server
 app.listen(port, () => {
