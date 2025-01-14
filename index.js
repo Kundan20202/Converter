@@ -664,67 +664,67 @@ app.post('/generate-app', async (req, res) => {
   const { name, website } = req.body;
 
   if (!name || !website) {
-    return res.status(400).json({ success: false, message: "Name and website are required." });
+    return res.status(400).json({ success: false, message: 'Name and website are required.' });
   }
 
   try {
-    const appJsonPath = path.resolve('app.json'); // Use path.resolve for better cross-platform compatibility
-
-    // Check if `app.json` exists
-    if (!fs.existsSync(appJsonPath)) {
-      console.error("app.json file not found at:", appJsonPath);
-      return res.status(500).json({ success: false, message: "app.json file not found." });
-    }
+    // Path to `app.json`
+    const appJsonPath = path.join(__dirname, 'app.json');
 
     // Read and update `app.json`
     const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf-8'));
     appJson.expo.name = name;
-    appJson.expo.extra = { website };
+    appJson.expo.extra = { website }; // Add extra field for website
     fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
 
-    console.log("app.json updated successfully!");
+    console.log('app.json updated successfully!');
 
-    // Respond immediately to avoid timeout
-    res.json({ success: true, message: "App generation initiated. The build is being processed." });
+    // Trigger EAS build
+    const easCommand = `eas build --platform android --profile production --non-interactive`;
+    const env = { ...process.env, EXPO_TOKEN: process.env.EXPO_TOKEN };
 
-    // Trigger the EAS build in the background
-    exec('eas build --platform android --profile production', { cwd: __dirname }, (err, stdout, stderr) => {
-  if (err) {
-    console.error("Error during EAS build:", stderr);
-    return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
-  }
-  console.log("EAS build stdout:", stdout);
-  console.log("EAS build stderr:", stderr);
+    exec(easCommand, { cwd: __dirname, env }, (err, stdout, stderr) => {
+      if (err) {
+        console.error('Error during EAS build:', stderr);
+        return res.status(500).json({ success: false, message: 'EAS build failed.', error: stderr });
+      }
 
-  const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
-  if (!buildLinkMatch) {
-    return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
-  }
+      console.log('EAS build output:', stdout);
 
-  const buildLink = buildLinkMatch[0];
-  console.log("Build link:", buildLink);
-  res.json({ success: true, message: "App generated successfully!", link: buildLink });
-});
+      // Parse EAS build response for build link
+      const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
+      if (!buildLinkMatch) {
+        return res.status(500).json({ success: false, message: 'Failed to retrieve build link.' });
+      }
 
+      const buildLink = buildLinkMatch[0];
+      console.log('Build link:', buildLink);
 
-      // Update the database with the build link
+      // Store app_url in the database
       pool.query(
         'UPDATE apps SET app_url = $1 WHERE website = $2 RETURNING *',
         [buildLink, website],
         (dbErr, dbResult) => {
           if (dbErr) {
-            console.error("Database update error:", dbErr.stack || dbErr.message);
-            return;
+            console.error('Database update error:', dbErr);
+            return res.status(500).json({ success: false, message: 'Failed to update database.' });
           }
-          console.log("App URL updated in database:", dbResult.rows[0]);
+
+          // Return the app download link
+          res.json({ success: true, message: 'App generated successfully!', link: buildLink });
         }
       );
     });
   } catch (error) {
-    console.error("Error in generate-app:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+    console.error('Error in generate-app:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
   }
 });
+
+
+
+
+
 
 // Start the server
 app.listen(port, () => {
