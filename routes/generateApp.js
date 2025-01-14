@@ -1,15 +1,54 @@
-import { exec } from 'child_process';
+import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import { exec } from 'child_process';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Load environment variables from .env file
+dotenv.config();
 
-// Function to handle /generate-app
-const expoProjectPath = '/workspaces/Expo'; // Absolute path
-const appJsonPath = '/workspaces/Expo/app.json'; // Full path to app.json
+// Your GitHub token
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const REPO_OWNER = 'Kundan20202';  // Replace with your GitHub username or organization
+const REPO_NAME = 'Expo';  // Replace with your repository name
+const APP_JSON_PATH = 'app.json';  // Path to the app.json in the repository
 
+// Path to your Expo project folder (the path should be absolute or relative to your backend)
+const EXPO_PROJECT_PATH = '/workspaces/Expo'; // This is the Codespace path
+
+const updateAppJson = async (updatedAppJson) => {
+  try {
+    // Step 1: Fetch the current app.json to get the SHA for updating
+    const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${APP_JSON_PATH}`, {
+      headers: {
+        Authorization: `token ${GITHUB_TOKEN}`,
+      },
+    });
+
+    const sha = response.data.sha;  // Retrieve the SHA of the current app.json
+
+    // Step 2: Update the app.json file with the new content
+    const updateResponse = await axios.put(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${APP_JSON_PATH}`,
+      {
+        message: 'Update app.json for new app generation',  // Commit message
+        content: Buffer.from(JSON.stringify(updatedAppJson, null, 2)).toString('base64'),  // Encode the content to base64
+        sha: sha,  // Provide the SHA to ensure we update the correct file version
+      },
+      {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+        },
+      }
+    );
+
+    console.log('File updated successfully:', updateResponse.data.content);
+  } catch (error) {
+    console.error('Error updating app.json:', error.response ? error.response.data : error.message);
+  }
+};
+
+// Function to handle /generate-app endpoint
 export const generateApp = async (req, res) => {
   const { name, email, website, app_name } = req.body;
 
@@ -18,7 +57,7 @@ export const generateApp = async (req, res) => {
   }
 
   try {
-    // Update app.json dynamically
+    // Step 3: Prepare the updated app.json structure
     const appJson = {
       expo: {
         name: app_name,
@@ -54,11 +93,12 @@ export const generateApp = async (req, res) => {
       }
     };
 
-    fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
-    console.log("Updated app.json for:", app_name);
+    // Step 4: Update the app.json in the GitHub repository
+    await updateAppJson(appJson);
 
-    // Run the build command
-    const buildCommand = `cd ${expoProjectPath} && eas build --profile production --platform android`;
+    // Step 5: Run the build command for Expo (after the app.json is updated)
+    const buildCommand = `cd ${EXPO_PROJECT_PATH} && eas build --profile production --platform android`;
+
     exec(buildCommand, (error, stdout, stderr) => {
       if (error) {
         console.error("Build command failed:", stderr);
@@ -77,6 +117,7 @@ export const generateApp = async (req, res) => {
         });
       }
 
+      // Return the generated app download URLs
       return res.status(200).json({
         success: true,
         message: 'App built successfully.',
@@ -86,12 +127,9 @@ export const generateApp = async (req, res) => {
         },
       });
     });
-  } catch (err) {
-    console.error('Error generating app:', err);
-    res.status(500).json({
-      success: false,
-      message: 'An error occurred while generating the app.',
-      error: err.message,
-    });
+
+  } catch (error) {
+    console.error("Error in generateApp:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
