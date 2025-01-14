@@ -684,7 +684,10 @@ app.post('/generate-app', async (req, res) => {
     console.log("app.json updated successfully!");
 
     // Trigger EAS build with EXPO_TOKEN
-    exec(`EXPO_TOKEN=${process.env.EXPO_TOKEN} eas build --platform android --profile production`, { cwd: __dirname }, (err, stdout, stderr) => {
+    exec(`eas build --platform android --profile production`, { 
+      cwd: __dirname, 
+      env: { ...process.env, EXPO_TOKEN: process.env.EXPO_TOKEN } 
+    }, (err, stdout, stderr) => {
       if (err) {
         console.error("Error during EAS build:", stderr);
         return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
