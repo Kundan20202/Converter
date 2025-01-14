@@ -218,7 +218,7 @@ app.get('/', (req, res) => {
 
 
 // /eas-test endpoint
-app.post("/eas-test", (req, res) => {
+app.post("/testing", (req, res) => {
   const { platform, buildType } = req.body;
 
   console.log("Received request at /eas-build");
