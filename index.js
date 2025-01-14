@@ -214,29 +214,23 @@ app.get('/', (req, res) => {
     res.send('Backend is running!');
 });
 
-// Root Route
-app.get('/est', (req, res) => {
-    res.send('Backend is running!');
-});
+// APK generation endpoint
+app.post("/apk-gen", (req, res) => {
+  const { website, app_name } = req.body;
 
-
-// /eas-test endpoint
-app.post("/testing", (req, res) => {
-  const { platform, buildType } = req.body;
-
-  console.log("Received request at /eas-build");
+  console.log("Received request at /apk-gen");
   console.log("Request Body:", req.body);
 
   // Validate input
-  if (!platform || !["android", "ios"].includes(platform)) {
-    return res.status(400).json({ error: "Invalid or missing platform. Use 'android' or 'ios'." });
+  if (!website || typeof website !== "string") {
+    return res.status(400).json({ error: "Invalid or missing 'website'. It must be a string." });
   }
-  if (!buildType || !["apk", "app-bundle"].includes(buildType)) {
-    return res.status(400).json({ error: "Invalid or missing buildType. Use 'apk' or 'app-bundle'." });
+  if (!app_name || typeof app_name !== "string") {
+    return res.status(400).json({ error: "Invalid or missing 'app_name'. It must be a string." });
   }
 
-  // Command to execute the EAS build
-  const easCommand = `eas build --platform ${platform} --profile ${buildType === "apk" ? "development" : "production"}`;
+  // Construct EAS build command
+  const easCommand = `eas build --platform android --profile development`;
 
   console.log("Executing EAS command:", easCommand);
 
@@ -244,20 +238,25 @@ app.post("/testing", (req, res) => {
   exec(easCommand, (error, stdout, stderr) => {
     if (error) {
       console.error("Error during EAS build:", error.message);
-      return res.status(500).json({ error: "EAS build failed", details: error.message });
+      return res.status(500).json({
+        error: "EAS build failed",
+        details: error.message,
+        stderr,
+      });
     }
 
     console.log("EAS Build STDOUT:", stdout);
     console.error("EAS Build STDERR:", stderr);
 
     return res.status(200).json({
-      message: "EAS build executed successfully",
+      message: "EAS build triggered successfully",
+      app_name,
+      website,
       stdout,
       stderr,
     });
   });
 });
-
 
 
 
