@@ -81,6 +81,115 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 })();
 
 
+
+// Function to handle /generate-app
+export const generateApp = async (req, res) => {
+  const { name, email, website, app_name } = req.body;
+
+  // Validate input
+  if (!name || !email || !website || !app_name) {
+    return res.status(400).json({
+      success: false,
+      message: 'All fields (name, email, website, app_name) are required.',
+    });
+  }
+
+  try {
+    // Step 1: Update app.json in the root directory
+    const appJsonPath = path.join(__dirname, '../app.json');
+    const appJsonContent = {
+      expo: {
+        name: app_name,
+        slug: app_name.toLowerCase().replace(/\s+/g, '-'),
+        version: '1.0.0',
+        sdkVersion: '51.0.0',
+        orientation: 'portrait',
+        icon: './assets/icon.png',
+        splash: {
+          image: './assets/splash.png',
+          resizeMode: 'contain',
+          backgroundColor: '#ffffff',
+        },
+        platforms: ['ios', 'android'],
+        android: {
+          package: `com.appforge.${app_name.toLowerCase().replace(/\s+/g, '')}`,
+          adaptiveIcon: {
+            foregroundImage: './assets/icon.png',
+            backgroundColor: '#ffffff',
+          },
+        },
+        ios: {
+          bundleIdentifier: `com.appforge.${app_name.toLowerCase().replace(/\s+/g, '')}`,
+          buildNumber: '1.0.0',
+        },
+        extra: {
+          website,
+          email,
+        },
+      },
+    };
+
+    // Write app.json to the root folder
+    fs.writeFileSync(appJsonPath, JSON.stringify(appJsonContent, null, 2));
+    console.log('app.json updated successfully.');
+
+    // Step 2: Run the EAS Build command
+    const buildCommand = 'eas build --profile production --platform all';
+    console.log('Executing build command:', buildCommand);
+
+    exec(buildCommand, { cwd: path.join(__dirname, '..') }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Build failed:', stderr);
+        return res.status(500).json({
+          success: false,
+          message: 'EAS build failed.',
+          error: stderr || error.message,
+        });
+      }
+
+      console.log('Build succeeded:', stdout);
+
+      // Extract APK and AAB file URLs from the output
+      const aabUrlMatch = stdout.match(/https:\/\/.*\.aab/);
+      const apkUrlMatch = stdout.match(/https:\/\/.*\.apk/);
+
+      if (!aabUrlMatch && !apkUrlMatch) {
+        return res.status(500).json({
+          success: false,
+          message: 'Build completed, but no output file URLs were found.',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'App built successfully.',
+        appUrls: {
+          aab: aabUrlMatch ? aabUrlMatch[0] : null,
+          apk: apkUrlMatch ? apkUrlMatch[0] : null,
+        },
+      });
+    });
+  } catch (err) {
+    console.error('Error generating app:', err);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while generating the app.',
+      error: err.message,
+    });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
 // Define 'uploadsDir' at the top of the file
 const uploadsDir = path.join(__dirname, 'uploads');
 
@@ -658,71 +767,8 @@ app.post('/api/update-account-details', verifyToken, async (req, res) => {
 
 
 
-
-// Route: Generate App (Trigger EAS Build)
-app.post('/generate-app', async (req, res) => {
-  const { name, website } = req.body;
-
-  if (!name || !website) {
-    return res.status(400).json({ success: false, message: "Name and website are required." });
-  }
-
-  if (!process.env.EXPO_TOKEN) {
-    return res.status(500).json({ success: false, message: "EXPO_TOKEN is not set in environment variables." });
-  }
-
-  try {
-    // Path to `app.json`
-    const appJsonPath = path.join(__dirname, 'app.json');
-
-    // Read and update `app.json`
-    const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf-8'));
-    appJson.expo.name = name;
-    appJson.expo.extra = { website }; // Add extra field for website
-    fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
-
-    console.log("app.json updated successfully!");
-
-    // Trigger EAS build with EXPO_TOKEN
-    exec(`eas build --platform android --profile production`, { 
-      cwd: __dirname, 
-      env: { ...process.env, EXPO_TOKEN: process.env.EXPO_TOKEN } 
-    }, (err, stdout, stderr) => {
-      if (err) {
-        console.error("Error during EAS build:", stderr);
-        return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
-      }
-
-      // Parse EAS build response
-      const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
-      if (!buildLinkMatch) {
-        return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
-      }
-
-      const buildLink = buildLinkMatch[0];
-      console.log("Build link:", buildLink);
-
-      // Store app_url in the database
-      pool.query(
-        'UPDATE apps SET app_url = $1 WHERE website = $2 RETURNING *',
-        [buildLink, website],
-        (dbErr, dbResult) => {
-          if (dbErr) {
-            console.error("Database update error:", dbErr);
-            return res.status(500).json({ success: false, message: "Failed to update database." });
-          }
-
-          // Return the app download link
-          res.json({ success: true, message: "App generated successfully!", link: buildLink });
-        }
-      );
-    });
-  } catch (error) {
-    console.error("Error in generate-app:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
-  }
-});
-
+// Generate App
+app.post('/generate-app', generateApp);
 
 
 
