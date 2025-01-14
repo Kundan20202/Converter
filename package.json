@@ -28,8 +28,7 @@
     "dotenv": "^16.3.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "eas-cli": "^3.14.4"
+    "nodemon": "^3.0.1"
   },
   "engines": {
     "node": "18.x.x"
