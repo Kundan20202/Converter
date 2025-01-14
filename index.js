@@ -664,7 +664,11 @@ app.post('/generate-app', async (req, res) => {
   const { name, website } = req.body;
 
   if (!name || !website) {
-    return res.status(400).json({ success: false, message: 'Name and website are required.' });
+    return res.status(400).json({ success: false, message: "Name and website are required." });
+  }
+
+  if (!process.env.EXPO_TOKEN) {
+    return res.status(500).json({ success: false, message: "EXPO_TOKEN is not set in environment variables." });
   }
 
   try {
@@ -677,28 +681,23 @@ app.post('/generate-app', async (req, res) => {
     appJson.expo.extra = { website }; // Add extra field for website
     fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
 
-    console.log('app.json updated successfully!');
+    console.log("app.json updated successfully!");
 
-    // Trigger EAS build
-    const easCommand = `eas build --platform android --profile production --non-interactive`;
-    const env = { ...process.env, EXPO_TOKEN: process.env.EXPO_TOKEN };
-
-    exec(easCommand, { cwd: __dirname, env }, (err, stdout, stderr) => {
+    // Trigger EAS build with EXPO_TOKEN
+    exec(`EXPO_TOKEN=${process.env.EXPO_TOKEN} eas build --platform android --profile production`, { cwd: __dirname }, (err, stdout, stderr) => {
       if (err) {
-        console.error('Error during EAS build:', stderr);
-        return res.status(500).json({ success: false, message: 'EAS build failed.', error: stderr });
+        console.error("Error during EAS build:", stderr);
+        return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
       }
 
-      console.log('EAS build output:', stdout);
-
-      // Parse EAS build response for build link
+      // Parse EAS build response
       const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
       if (!buildLinkMatch) {
-        return res.status(500).json({ success: false, message: 'Failed to retrieve build link.' });
+        return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
       }
 
       const buildLink = buildLinkMatch[0];
-      console.log('Build link:', buildLink);
+      console.log("Build link:", buildLink);
 
       // Store app_url in the database
       pool.query(
@@ -706,18 +705,18 @@ app.post('/generate-app', async (req, res) => {
         [buildLink, website],
         (dbErr, dbResult) => {
           if (dbErr) {
-            console.error('Database update error:', dbErr);
-            return res.status(500).json({ success: false, message: 'Failed to update database.' });
+            console.error("Database update error:", dbErr);
+            return res.status(500).json({ success: false, message: "Failed to update database." });
           }
 
           // Return the app download link
-          res.json({ success: true, message: 'App generated successfully!', link: buildLink });
+          res.json({ success: true, message: "App generated successfully!", link: buildLink });
         }
       );
     });
   } catch (error) {
-    console.error('Error in generate-app:', error);
-    res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
+    console.error("Error in generate-app:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
   }
 });
 
