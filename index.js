@@ -9,6 +9,7 @@ import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import winston from "winston";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 // import { generateApp } from './routes/generateApp.js';
@@ -17,6 +18,25 @@ import jwt from 'jsonwebtoken';
 // Load environment variables
 dotenv.config();
 const { Pool } = pkg;
+
+
+
+
+// Winston logger configuration
+const logger = winston.createLogger({
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.printf(({ timestamp, level, message }) => {
+      return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+    })
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: "backend.log" })
+  ]
+});
+
 
 // PostgreSQL setup
 const pool = new Pool({
@@ -146,6 +166,10 @@ const verifyToken = (req, res, next) => {
 export default verifyToken;
 
 
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 
 // Route: Test database connection
@@ -164,10 +188,6 @@ app.get('/db-test', async (req, res) => {
 });
 
 
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
 
 
 
