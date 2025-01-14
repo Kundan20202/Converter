@@ -13,8 +13,14 @@ const REPO_OWNER = 'Kundan20202';  // Replace with your GitHub username or organ
 const REPO_NAME = 'Expo';  // Replace with your repository name
 const APP_JSON_PATH = 'app.json';  // Path to the app.json in the repository
 
-// Path to your Expo project folder (the path should be absolute or relative to your backend)
-const EXPO_PROJECT_PATH = '/workspaces/Expo'; // This is the Codespace path
+// Path to your Expo project folder (make sure this path is correct)
+const EXPO_PROJECT_PATH = path.resolve('/workspaces/Expo'); // Dynamically resolved path
+
+// Check if the Expo project directory exists
+if (!fs.existsSync(EXPO_PROJECT_PATH)) {
+  console.error('Expo project directory not found:', EXPO_PROJECT_PATH);
+  process.exit(1);  // Exit if directory is not found
+}
 
 const updateAppJson = async (updatedAppJson) => {
   try {
@@ -98,6 +104,11 @@ export const generateApp = async (req, res) => {
 
     // Step 5: Run the build command for Expo (after the app.json is updated)
     const buildCommand = `cd ${EXPO_PROJECT_PATH} && eas build --profile production --platform android`;
+
+    // Check if the Expo project directory exists
+    if (!fs.existsSync(EXPO_PROJECT_PATH)) {
+      return res.status(500).json({ success: false, message: 'Expo project directory not found on the server.' });
+    }
 
     exec(buildCommand, (error, stdout, stderr) => {
       if (error) {
