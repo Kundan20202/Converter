@@ -668,45 +668,51 @@ app.post('/generate-app', async (req, res) => {
   }
 
   try {
-    // Path to `app.json`
-    const appJsonPath = path.join(__dirname, 'app.json');
+    const appJsonPath = path.resolve('app.json'); // Use path.resolve for better cross-platform compatibility
+
+    // Check if `app.json` exists
+    if (!fs.existsSync(appJsonPath)) {
+      console.error("app.json file not found at:", appJsonPath);
+      return res.status(500).json({ success: false, message: "app.json file not found." });
+    }
 
     // Read and update `app.json`
     const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf-8'));
     appJson.expo.name = name;
-    appJson.expo.extra = { website }; // Add extra field for website
+    appJson.expo.extra = { website };
     fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
 
     console.log("app.json updated successfully!");
 
-    // Trigger EAS build
-    exec('eas build --platform android --profile production', { cwd: __dirname }, (err, stdout, stderr) => {
+    // Respond immediately to avoid timeout
+    res.json({ success: true, message: "App generation initiated. The build is being processed." });
+
+    // Trigger the EAS build in the background
+    exec('eas build --platform android --profile production', { cwd: process.cwd(), maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) {
-        console.error("Error during EAS build:", stderr);
-        return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
+        console.error("Error during EAS build:", stderr || err.message);
+        return; // Don't send response again as it was already sent
       }
 
-      // Parse EAS build response
       const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
       if (!buildLinkMatch) {
-        return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
+        console.error("Failed to retrieve build link from EAS CLI output.");
+        return;
       }
 
       const buildLink = buildLinkMatch[0];
       console.log("Build link:", buildLink);
 
-      // Store app_url in the database
+      // Update the database with the build link
       pool.query(
         'UPDATE apps SET app_url = $1 WHERE website = $2 RETURNING *',
         [buildLink, website],
         (dbErr, dbResult) => {
           if (dbErr) {
-            console.error("Database update error:", dbErr);
-            return res.status(500).json({ success: false, message: "Failed to update database." });
+            console.error("Database update error:", dbErr.stack || dbErr.message);
+            return;
           }
-
-          // Return the app download link
-          res.json({ success: true, message: "App generated successfully!", link: buildLink });
+          console.log("App URL updated in database:", dbResult.rows[0]);
         }
       );
     });
