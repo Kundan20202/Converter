@@ -172,6 +172,36 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 
+
+
+
+
+// EAS Build Trigger
+app.post("/eas-build", (req, res) => {
+  logger.info("EAS build initiated...");
+  try {
+    // Dummy EAS build process simulation
+    logger.info("Processing EAS build...");
+    // Insert actual EAS build logic if needed
+    res.status(200).send("EAS build processed successfully");
+  } catch (error) {
+    logger.error(`EAS build failed: ${error.message}`);
+    res.status(500).send("EAS build failed");
+  }
+});
+
+// Error Handling Middleware
+app.use((err, req, res, next) => {
+  logger.error(`Unhandled error: ${err.message}`);
+  res.status(500).send("Internal server error");
+});
+
+
+
+
+
+
+
 // Route: Test database connection
 app.get('/db-test', async (req, res) => {
   try {
