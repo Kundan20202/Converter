@@ -7,71 +7,71 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Function to handle /generate-app
+const expoProjectPath = '/workspaces/Expo/app.json'; // Update this path to your Codespaces Expo project
+const appJsonPath = path.join(expoProjectPath, 'app.json');
+
 export const generateApp = async (req, res) => {
   const { name, email, website, app_name } = req.body;
 
-  // Validate input
   if (!name || !email || !website || !app_name) {
-    return res.status(400).json({
-      success: false,
-      message: 'All fields (name, email, website, app_name) are required.',
-    });
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
   }
 
   try {
-    // Step 1: Update app.json in the root directory
-    const appJsonPath = path.join(__dirname, '../app.json');
-    const appJsonContent = {
+    // Update app.json dynamically
+    const appJson = {
       expo: {
         name: app_name,
         slug: app_name.toLowerCase().replace(/\s+/g, '-'),
-        version: '1.0.0',
-        sdkVersion: '51.0.0',
-        orientation: 'portrait',
-        icon: './assets/icon.png',
+        version: "1.0.0",
+        orientation: "portrait",
+        icon: "./assets/icon.png",
         splash: {
-          image: './assets/splash.png',
-          resizeMode: 'contain',
-          backgroundColor: '#ffffff',
-        },
-        platforms: ['ios', 'android'],
-        android: {
-          package: `com.appforge.${app_name.toLowerCase().replace(/\s+/g, '')}`,
-          adaptiveIcon: {
-            foregroundImage: './assets/icon.png',
-            backgroundColor: '#ffffff',
-          },
+          image: "./assets/splash.png",
+          resizeMode: "contain",
+          backgroundColor: "#ffffff"
         },
         ios: {
-          bundleIdentifier: `com.appforge.${app_name.toLowerCase().replace(/\s+/g, '')}`,
-          buildNumber: '1.0.0',
+          supportsTablet: true
         },
-        extra: {
-          website,
-          email,
+        android: {
+          adaptiveIcon: {
+            foregroundImage: "./assets/adaptive-icon.png",
+            backgroundColor: "#ffffff"
+          }
         },
-      },
+        plugins: [
+          [
+            "expo-build-properties",
+            {
+              android: {
+                gradleVersion: "8.2",
+                androidGradlePluginVersion: "8.2.0"
+              }
+            }
+          ]
+        ]
+      }
     };
 
-    // Write app.json to the root folder
-    fs.writeFileSync(appJsonPath, JSON.stringify(appJsonContent, null, 2));
-    console.log('app.json updated successfully.');
+    fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
+    console.log("Updated app.json for:", app_name);
 
-    // Step 2: Run the EAS Build command
-    const buildCommand = 'eas build --profile production --platform all';
-    console.log('Executing build command:', buildCommand);
-
-    exec(buildCommand, { cwd: path.join(__dirname, '..') }, (error, stdout, stderr) => {
+    // Run the build command
+    const buildCommand = `cd ${expoProjectPath} && eas build --profile production --platform android`;
+    exec(buildCommand, (error, stdout, stderr) => {
       if (error) {
-        console.error('Build failed:', stderr);
-        return res.status(500).json({
-          success: false,
-          message: 'EAS build failed.',
-          error: stderr || error.message,
-        });
+        console.error("Build command failed:", stderr);
+        return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
       }
-
-      console.log('Build succeeded:', stdout);
+      console.log("Build output:", stdout);
+      res.status(200).json({ success: true, message: "Build initiated successfully", output: stdout });
+    });
+  } catch (error) {
+    console.error("Error in generateApp:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
 
       // Extract APK and AAB file URLs from the output
       const aabUrlMatch = stdout.match(/https:\/\/.*\.aab/);
