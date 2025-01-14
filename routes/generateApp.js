@@ -14,7 +14,7 @@ const REPO_NAME = 'Expo';  // Replace with your repository name
 const APP_JSON_PATH = 'app.json';  // Path to the app.json in the repository
 
 // Path to your Expo project folder (make sure this path is correct)
-const EXPO_PROJECT_PATH = path.resolve('/workspaces/Expo'); // Dynamically resolved path
+// const EXPO_PROJECT_PATH = path.resolve('/workspaces/Expo'); // Dynamically resolved path
 
 // Check if the Expo project directory exists
 if (!fs.existsSync(EXPO_PROJECT_PATH)) {
