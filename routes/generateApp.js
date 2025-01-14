@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Function to handle /generate-app
-const expoProjectPath = '/workspaces/Expo'; // Path to your Codespaces Expo project
+const expoProjectPath = '/workspaces/Expo'; // Base path of the Expo project
 const appJsonPath = path.join(expoProjectPath, 'app.json');
 
 export const generateApp = async (req, res) => {
