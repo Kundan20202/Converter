@@ -1,31 +1,30 @@
 {
   "name": "nodejs",
   "version": "1.0.0",
-  "description": "Node.js backend for app conversion and integration with EAS CLI and AWS S3.",
+  "description": "Node.js backend for app conversion and integration with EAS CLI.",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "build:eas": "npx eas build",
+    "build:eas": "eas build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["Node.js", "Express", "EAS CLI", "AWS S3", "Backend"],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@types/node": "^18.17.19",
-    "multer": "^1.4.5-lts.1",
-    "axios": "^1.5.0",
-    "jsonwebtoken": "^8.5.1",
     "@aws-sdk/client-s3": "^3.50.0",
+    "axios": "^1.5.0",
+    "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
     "express": "^4.21.1",
-    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^8.5.1",
+    "multer": "^1.4.5-lts.1",
     "pg": "^8.13.1",
-    "winston": "^3.8.2",
-    "dotenv": "^16.3.1"
+    "winston": "^3.8.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
