@@ -216,60 +216,40 @@ app.get('/', (req, res) => {
 });
 
 // APK generation endpoint
-app.post('/apk-gen', (req, res) => {
-    const { website, app_name } = req.body;
+app.post("/apk-gen", (req, res) => {
+  const { app_name, website } = req.body;
 
-    if (!website || !app_name) {
-        return res.status(400).json({ error: 'Missing website or app_name in the request body.' });
+  if (!app_name || !website) {
+    return res.status(400).json({ error: "App name and website are required." });
+  }
+
+  console.log(`Received build request for: ${app_name} (${website})`);
+
+  const child = spawn("./node_modules/.bin/eas", ["build", "--platform", "android"], {
+    cwd: process.cwd(), // Set current working directory
+    env: { ...process.env, PATH: `${process.env.PATH}:${process.cwd()}/node_modules/.bin` }, // Update PATH
+  });
+
+  child.stdout.on("data", (data) => {
+    console.log(`stdout: ${data}`);
+  });
+
+  child.stderr.on("data", (data) => {
+    console.error(`stderr: ${data}`);
+  });
+
+  child.on("close", (code) => {
+    if (code === 0) {
+      res.json({ message: "Build succeeded!" });
+    } else {
+      res.status(500).json({ error: "Build failed.", details: `Exit code: ${code}` });
     }
+  });
 
-    console.log(`Received build request for: ${app_name} (${website})`);
-
-    // Resolve the path to the eas CLI (fallback to npx if necessary)
-    const easPath = path.resolve('./node_modules/.bin/eas'); // Adjust based on your environment
-
-    // Try spawning `eas build` command
-    const easBuild = spawn(easPath, ['build', '--platform', 'android'], {
-        stdio: 'pipe', // Capture output
-        cwd: process.cwd(),
-        env: process.env,
-        shell: true,  // Enables shell execution for path resolution
-    });
-
-    let output = '';
-    let errorOutput = '';
-
-    // Collect stdout
-    easBuild.stdout.on('data', (data) => {
-        output += data.toString();
-        console.log(`stdout: ${data}`);
-    });
-
-    // Collect stderr
-    easBuild.stderr.on('data', (data) => {
-        errorOutput += data.toString();
-        console.error(`stderr: ${data}`);
-    });
-
-    // Handle process completion
-    easBuild.on('close', (code) => {
-        if (code === 0) {
-            console.log(`Build completed successfully: ${output}`);
-            return res.status(200).json({ message: 'Build completed successfully.', logs: output });
-        } else {
-            console.error(`Build failed with code ${code}: ${errorOutput}`);
-            return res.status(500).json({ error: 'Build failed.', details: errorOutput });
-        }
-    });
-
-    // Handle spawn errors
-    easBuild.on('error', (err) => {
-        console.error(`Spawn error: ${err.message}`);
-        res.status(500).json({
-            error: 'Failed to spawn the EAS build process.',
-            details: err.message,
-        });
-    });
+  child.on("error", (err) => {
+    console.error("Error during build:", err);
+    res.status(500).json({ error: "Build failed.", details: err.message });
+  });
 });
 
 
