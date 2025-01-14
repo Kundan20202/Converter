@@ -217,18 +217,44 @@ app.get('/', (req, res) => {
 
 
 
-// EAS Build Trigger
-app.post("/eas-build", (req, res) => {
-  const { platform, mode } = req.body; // Extract platform and mode
-  logger.info(`EAS build initiated for platform: ${platform}, mode: ${mode}`);
-  try {
-    // Add build logic
-    res.status(200).json({ message: "EAS build processed successfully", platform, mode });
-  } catch (error) {
-    logger.error(`EAS build failed: ${error.message}`);
-    res.status(500).json({ error: "EAS build failed" });
+// /eas-test endpoint
+app.post("/eas-test", (req, res) => {
+  const { platform, buildType } = req.body;
+
+  console.log("Received request at /eas-build");
+  console.log("Request Body:", req.body);
+
+  // Validate input
+  if (!platform || !["android", "ios"].includes(platform)) {
+    return res.status(400).json({ error: "Invalid or missing platform. Use 'android' or 'ios'." });
   }
+  if (!buildType || !["apk", "app-bundle"].includes(buildType)) {
+    return res.status(400).json({ error: "Invalid or missing buildType. Use 'apk' or 'app-bundle'." });
+  }
+
+  // Command to execute the EAS build
+  const easCommand = `eas build --platform ${platform} --profile ${buildType === "apk" ? "development" : "production"}`;
+
+  console.log("Executing EAS command:", easCommand);
+
+  // Execute the build command
+  exec(easCommand, (error, stdout, stderr) => {
+    if (error) {
+      console.error("Error during EAS build:", error.message);
+      return res.status(500).json({ error: "EAS build failed", details: error.message });
+    }
+
+    console.log("EAS Build STDOUT:", stdout);
+    console.error("EAS Build STDERR:", stderr);
+
+    return res.status(200).json({
+      message: "EAS build executed successfully",
+      stdout,
+      stderr,
+    });
+  });
 });
+
 
 
 
