@@ -17,7 +17,6 @@
     "@types/node": "^18.17.19",
     "multer": "^1.4.5-lts.1",
     "jsonwebtoken": "^8.5.1",
-    "eas-cli": "latest",
     "@aws-sdk/client-s3": "^3.50.0",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
