@@ -11,7 +11,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { generateApp } from './routes/generateApp.js';
+// import { generateApp } from './routes/generateApp.js';
 
 
 // Load environment variables
