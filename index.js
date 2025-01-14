@@ -215,8 +215,56 @@ app.get('/', (req, res) => {
 });
 
 // APK generation endpoint
-app.post('/apk-gen', (req, res) => {
-    res.send('POST request works!');
+app.post('/apk-gen', async (req, res) => {
+    try {
+        const { website, app_name } = req.body;
+
+        // Validate input
+        if (!website || !app_name) {
+            res.status(400).json({ error: 'Website and app_name are required.' });
+            return;
+        }
+
+        console.log(`Received build request for: ${app_name} (${website})`);
+
+        // EAS Build command
+        const easBuild = spawn('eas', ['build', '--platform', 'android'], {
+            stdio: 'pipe',
+            cwd: process.cwd(), // Ensure you're in the correct directory
+            env: process.env, // Pass environment variables
+        });
+
+        let buildLogs = '';
+        easBuild.stdout.on('data', (data) => {
+            const log = data.toString();
+            buildLogs += log;
+            console.log(`[EAS LOG]: ${log}`);
+        });
+
+        easBuild.stderr.on('data', (data) => {
+            const errorLog = data.toString();
+            buildLogs += errorLog;
+            console.error(`[EAS ERROR]: ${errorLog}`);
+        });
+
+        easBuild.on('close', (code) => {
+            console.log(`EAS process exited with code ${code}`);
+            if (code === 0) {
+                res.status(200).json({
+                    message: 'Build triggered successfully.',
+                    logs: buildLogs,
+                });
+            } else {
+                res.status(500).json({
+                    error: 'Build failed.',
+                    logs: buildLogs,
+                });
+            }
+        });
+    } catch (error) {
+        console.error('Error in /apk-gen:', error);
+        res.status(500).json({ error: 'Internal server error.', details: error.message });
+    }
 });
 
 
