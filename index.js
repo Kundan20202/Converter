@@ -13,6 +13,7 @@ import winston from "winston";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 // import { generateApp } from './routes/generateApp.js';
+import { spawn } from 'child_process';
 
 
 // Load environment variables
