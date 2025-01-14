@@ -214,7 +214,10 @@ app.get('/', (req, res) => {
     res.send('Backend is running!');
 });
 
-
+// Root Route
+app.get('/est', (req, res) => {
+    res.send('Backend is running!');
+});
 
 
 // /eas-test endpoint
