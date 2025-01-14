@@ -216,56 +216,60 @@ app.get('/', (req, res) => {
 });
 
 // APK generation endpoint
-app.post('/apk-gen', async (req, res) => {
-    try {
-        const { website, app_name } = req.body;
+app.post('/apk-gen', (req, res) => {
+    const { website, app_name } = req.body;
 
-        // Validate input
-        if (!website || !app_name) {
-            res.status(400).json({ error: 'Website and app_name are required.' });
-            return;
-        }
-
-        console.log(`Received build request for: ${app_name} (${website})`);
-
-        // EAS Build command
-        const easBuild = spawn('eas', ['build', '--platform', 'android'], {
-            stdio: 'pipe',
-            cwd: process.cwd(), // Ensure you're in the correct directory
-            env: process.env, // Pass environment variables
-        });
-
-        let buildLogs = '';
-        easBuild.stdout.on('data', (data) => {
-            const log = data.toString();
-            buildLogs += log;
-            console.log(`[EAS LOG]: ${log}`);
-        });
-
-        easBuild.stderr.on('data', (data) => {
-            const errorLog = data.toString();
-            buildLogs += errorLog;
-            console.error(`[EAS ERROR]: ${errorLog}`);
-        });
-
-        easBuild.on('close', (code) => {
-            console.log(`EAS process exited with code ${code}`);
-            if (code === 0) {
-                res.status(200).json({
-                    message: 'Build triggered successfully.',
-                    logs: buildLogs,
-                });
-            } else {
-                res.status(500).json({
-                    error: 'Build failed.',
-                    logs: buildLogs,
-                });
-            }
-        });
-    } catch (error) {
-        console.error('Error in /apk-gen:', error);
-        res.status(500).json({ error: 'Internal server error.', details: error.message });
+    if (!website || !app_name) {
+        return res.status(400).json({ error: 'Missing website or app_name in the request body.' });
     }
+
+    console.log(`Received build request for: ${app_name} (${website})`);
+
+    // Resolve the path to the eas CLI (fallback to npx if necessary)
+    const easPath = path.resolve('./node_modules/.bin/eas'); // Adjust based on your environment
+
+    // Try spawning `eas build` command
+    const easBuild = spawn(easPath, ['build', '--platform', 'android'], {
+        stdio: 'pipe', // Capture output
+        cwd: process.cwd(),
+        env: process.env,
+        shell: true,  // Enables shell execution for path resolution
+    });
+
+    let output = '';
+    let errorOutput = '';
+
+    // Collect stdout
+    easBuild.stdout.on('data', (data) => {
+        output += data.toString();
+        console.log(`stdout: ${data}`);
+    });
+
+    // Collect stderr
+    easBuild.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+        console.error(`stderr: ${data}`);
+    });
+
+    // Handle process completion
+    easBuild.on('close', (code) => {
+        if (code === 0) {
+            console.log(`Build completed successfully: ${output}`);
+            return res.status(200).json({ message: 'Build completed successfully.', logs: output });
+        } else {
+            console.error(`Build failed with code ${code}: ${errorOutput}`);
+            return res.status(500).json({ error: 'Build failed.', details: errorOutput });
+        }
+    });
+
+    // Handle spawn errors
+    easBuild.on('error', (err) => {
+        console.error(`Spawn error: ${err.message}`);
+        res.status(500).json({
+            error: 'Failed to spawn the EAS build process.',
+            details: err.message,
+        });
+    });
 });
 
 
