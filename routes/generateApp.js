@@ -7,8 +7,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Function to handle /generate-app
-const expoProjectPath = '/workspaces/Expo'; // Base path of the Expo project
-const appJsonPath = path.join(expoProjectPath, 'app.json');
+const expoProjectPath = '/workspaces/Expo'; // Absolute path
+const appJsonPath = '/workspaces/Expo/app.json'; // Full path to app.json
 
 export const generateApp = async (req, res) => {
   const { name, email, website, app_name } = req.body;
