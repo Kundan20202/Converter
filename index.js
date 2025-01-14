@@ -176,19 +176,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 
 
-// EAS Build Trigger
-app.post("/eas-build", (req, res) => {
-  const { platform, mode } = req.body; // Extract platform and mode
-  logger.info(`EAS build initiated for platform: ${platform}, mode: ${mode}`);
-  try {
-    // Add build logic
-    res.status(200).json({ message: "EAS build processed successfully", platform, mode });
-  } catch (error) {
-    logger.error(`EAS build failed: ${error.message}`);
-    res.status(500).json({ error: "EAS build failed" });
-  }
-});
-
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
@@ -226,6 +213,25 @@ app.get('/db-test', async (req, res) => {
 app.get('/', (req, res) => {
     res.send('Backend is running!');
 });
+
+
+
+
+// EAS Build Trigger
+app.post("/eas-build", (req, res) => {
+  const { platform, mode } = req.body; // Extract platform and mode
+  logger.info(`EAS build initiated for platform: ${platform}, mode: ${mode}`);
+  try {
+    // Add build logic
+    res.status(200).json({ message: "EAS build processed successfully", platform, mode });
+  } catch (error) {
+    logger.error(`EAS build failed: ${error.message}`);
+    res.status(500).json({ error: "EAS build failed" });
+  }
+});
+
+
+
 
 
 
