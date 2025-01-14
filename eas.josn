@@ -1,3 +1,4 @@
+
 {
   "cli": {
     "version": ">= 14.1.0",
@@ -15,14 +16,7 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true,
-      "android": {
-        "buildType": "app-bundle"
-      },
-      "ios": {
-        "enterpriseProvisioning": "adhoc",
-        "credentialsSource": "remote"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
