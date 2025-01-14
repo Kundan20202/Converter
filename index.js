@@ -688,20 +688,24 @@ app.post('/generate-app', async (req, res) => {
     res.json({ success: true, message: "App generation initiated. The build is being processed." });
 
     // Trigger the EAS build in the background
-    exec('eas build --platform android --profile production', { cwd: process.cwd(), maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
-      if (err) {
-        console.error("Error during EAS build:", stderr || err.message);
-        return; // Don't send response again as it was already sent
-      }
+    exec('eas build --platform android --profile production', { cwd: __dirname }, (err, stdout, stderr) => {
+  if (err) {
+    console.error("Error during EAS build:", stderr);
+    return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
+  }
+  console.log("EAS build stdout:", stdout);
+  console.log("EAS build stderr:", stderr);
 
-      const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
-      if (!buildLinkMatch) {
-        console.error("Failed to retrieve build link from EAS CLI output.");
-        return;
-      }
+  const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
+  if (!buildLinkMatch) {
+    return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
+  }
 
-      const buildLink = buildLinkMatch[0];
-      console.log("Build link:", buildLink);
+  const buildLink = buildLinkMatch[0];
+  console.log("Build link:", buildLink);
+  res.json({ success: true, message: "App generated successfully!", link: buildLink });
+});
+
 
       // Update the database with the build link
       pool.query(
