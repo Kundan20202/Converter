@@ -9,7 +9,7 @@
         "buildType": "apk"
       },
       "ios": {
-        "simulator": true
+        "simulator": false
       }
     },
     "production": {
@@ -18,7 +18,8 @@
         "buildType": "app-bundle"
       },
       "ios": {
-        "enterpriseProvisioning": "adhoc"
+        "enterpriseProvisioning": "adhoc",
+        "credentialsSource": "remote"
       }
     }
   }
