@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Function to handle /generate-app
-const expoProjectPath = '/workspaces/Expo/app.json'; // Update this path to your Codespaces Expo project
+const expoProjectPath = '/workspaces/Expo'; // Path to your Codespaces Expo project
 const appJsonPath = path.join(expoProjectPath, 'app.json');
 
 export const generateApp = async (req, res) => {
@@ -65,13 +65,6 @@ export const generateApp = async (req, res) => {
         return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
       }
       console.log("Build output:", stdout);
-      res.status(200).json({ success: true, message: "Build initiated successfully", output: stdout });
-    });
-  } catch (error) {
-    console.error("Error in generateApp:", error);
-    res.status(500).json({ success: false, message: "Server error", error: error.message });
-  }
-};
 
       // Extract APK and AAB file URLs from the output
       const aabUrlMatch = stdout.match(/https:\/\/.*\.aab/);
