@@ -221,6 +221,14 @@ app.get('/', (req, res) => {
 
 
 
+app.post('/test-build', (req, res) => {
+  exec('eas build --platform android --profile production', { cwd: __dirname }, (err, stdout, stderr) => {
+    console.log('STDOUT:', stdout);
+    console.error('STDERR:', stderr);
+    if (err) return res.status(500).send(stderr);
+    res.send(stdout);
+  });
+});
 
 
 
