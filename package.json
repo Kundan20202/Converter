@@ -9,7 +9,7 @@
   "dev": "nodemon index.js",
   "build:eas": "./node_modules/.bin/eas build",
   "test": "echo \"Error: no test specified\" && exit 1",
-  "postinstall": "npm install -g eas-cli@14.4.0 && eas --version"
+  "postinstall": "npm install -g eas-cli@14.1.0 && eas --version"
 },
   "keywords": ["Node.js", "Express", "EAS CLI", "AWS S3", "Backend"],
   "author": "",
