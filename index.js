@@ -217,41 +217,32 @@ app.get('/', (req, res) => {
 
 // APK generation endpoint
 app.post("/apk-gen", (req, res) => {
-  const { app_name, website } = req.body;
+    const { website, app_name } = req.body;
 
-  if (!app_name || !website) {
-    return res.status(400).json({ error: "App name and website are required." });
-  }
+    console.log(`Received build request for: ${app_name} (${website})`);
 
-  console.log(`Received build request for: ${app_name} (${website})`);
+    // Command to execute the global EAS CLI
+    const buildCommand = `eas build --platform android`;
 
-  const child = spawn("./node_modules/.bin/eas", ["build", "--platform", "android"], {
-    cwd: process.cwd(), // Set current working directory
-    env: { ...process.env, PATH: `${process.env.PATH}:${process.cwd()}/node_modules/.bin` }, // Update PATH
-  });
+    const child = exec(buildCommand, (error, stdout, stderr) => {
+        if (error) {
+            console.error("Error during build:", error);
+            return res.status(500).json({
+                error: "Build failed.",
+                details: error.message,
+            });
+        }
 
-  child.stdout.on("data", (data) => {
-    console.log(`stdout: ${data}`);
-  });
+        console.log("stdout:", stdout);
+        console.error("stderr:", stderr);
 
-  child.stderr.on("data", (data) => {
-    console.error(`stderr: ${data}`);
-  });
-
-  child.on("close", (code) => {
-    if (code === 0) {
-      res.json({ message: "Build succeeded!" });
-    } else {
-      res.status(500).json({ error: "Build failed.", details: `Exit code: ${code}` });
-    }
-  });
-
-  child.on("error", (err) => {
-    console.error("Error during build:", err);
-    res.status(500).json({ error: "Build failed.", details: err.message });
-  });
+        res.status(200).json({
+            message: "Build triggered successfully.",
+            output: stdout,
+            errors: stderr,
+        });
+    });
 });
-
 
 
 
