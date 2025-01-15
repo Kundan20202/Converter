@@ -86,6 +86,31 @@ const port = process.env.PORT || 5000;
 app.use(express.json());
 
 
+// Log the global npm directory
+exec("npm root -g", (err, stdout, stderr) => {
+  if (err) {
+    console.error("Error fetching global npm path:", stderr);
+  } else {
+    console.log("Global npm path:", stdout.trim());
+  }
+});
+
+// Log the path of eas-cli
+exec("which eas", (err, stdout, stderr) => {
+  if (err) {
+    console.error("Error finding eas-cli:", stderr);
+  } else {
+    console.log("EAS CLI path:", stdout.trim());
+  }
+});
+
+
+
+
+
+
+
+
 // Convert __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
