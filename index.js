@@ -217,31 +217,60 @@ app.get('/', (req, res) => {
 
 // APK generation endpoint
 app.post("/apk-gen", (req, res) => {
-    const { website, app_name } = req.body;
+   const { name, website } = req.body;
 
-    console.log(`Received build request for: ${app_name} (${website})`);
+  if (!name || !website) {
+    return res.status(400).json({ success: false, message: "Name and website are required." });
+  }
 
-    // Command to execute the global EAS CLI
-    const buildCommand = `eas build --platform android`;
+  try {
+    const appJsonPath = path.join(__dirname, 'app.json');
 
-    const child = exec(buildCommand, (error, stdout, stderr) => {
-        if (error) {
-            console.error("Error during build:", error);
-            return res.status(500).json({
-                error: "Build failed.",
-                details: error.message,
-            });
+    // Update app.json
+    const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf-8'));
+    appJson.expo.name = name;
+    appJson.expo.extra = { website };
+    fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2));
+
+    console.log("app.json updated successfully!");
+
+    // Trigger EAS build
+    exec(
+      '/usr/local/bin/eas build --platform android --profile production',
+      { cwd: __dirname }, // Ensure command runs in the correct directory
+      (err, stdout, stderr) => {
+        if (err) {
+          console.error("Error during EAS build:", stderr);
+          return res.status(500).json({ success: false, message: "EAS build failed.", error: stderr });
         }
 
-        console.log("stdout:", stdout);
-        console.error("stderr:", stderr);
+        const buildLinkMatch = stdout.match(/https:\/\/expo\.dev\/accounts\/.*\/builds\/[a-zA-Z0-9\-]+/);
+        if (!buildLinkMatch) {
+          return res.status(500).json({ success: false, message: "Failed to retrieve build link." });
+        }
 
-        res.status(200).json({
-            message: "Build triggered successfully.",
-            output: stdout,
-            errors: stderr,
-        });
-    });
+        const buildLink = buildLinkMatch[0];
+        console.log("Build link:", buildLink);
+
+        // Update the database with the build link
+        pool.query(
+          'UPDATE apps SET app_url = $1 WHERE website = $2 RETURNING *',
+          [buildLink, website],
+          (dbErr, dbResult) => {
+            if (dbErr) {
+              console.error("Database update error:", dbErr);
+              return res.status(500).json({ success: false, message: "Failed to update database." });
+            }
+
+            res.json({ success: true, message: "App generated successfully!", link: buildLink });
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error("Error in generate-app:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+  }
 });
 
 
