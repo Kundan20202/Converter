@@ -21,6 +21,27 @@ dotenv.config();
 const { Pool } = pkg;
 
 
+// finding paths of eas and app
+const easJsonPath = path.join(__dirname, 'eas.json');
+const appJsonPath = path.join(__dirname, 'app.json');
+
+// Check if these files exist and log their paths
+if (fs.existsSync(easJsonPath)) {
+  console.log(`Found eas.json at: ${easJsonPath}`);
+} else {
+  console.error('eas.json not found at expected path:', easJsonPath);
+}
+
+if (fs.existsSync(appJsonPath)) {
+  console.log(`Found app.json at: ${appJsonPath}`);
+} else {
+  console.error('app.json not found at expected path:', appJsonPath);
+}
+
+
+
+
+
 
 
 // Winston logger configuration
