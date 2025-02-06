@@ -527,6 +527,7 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
 
         // Ensure features is provided and is an array
         if (!features || !Array.isArray(features)) {
+            console.error("Invalid features input:", req.body); // Debugging log
             return res.status(400).json({
                 message: 'Features must be a valid array.',
             });
@@ -565,6 +566,7 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
         });
     }
 });
+
 
 
 
