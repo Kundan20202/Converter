@@ -523,19 +523,12 @@ app.get('/api/get-icons', verifyToken, async (req, res) => {
 // Route: Update Features, App Design, and Customization
 app.post('/api/update-preferences', verifyToken, async (req, res) => {
     try {
-        const { features, app_design, customization } = req.body;
+        const { features } = req.body;
 
-        // Validate features (must be an array with 1-5 items)
-        if (!Array.isArray(features) || features.length === 0 || features.length > 5) {
+        // Validate features (must be an array)
+        if (!Array.isArray(features) || features.length === 0) {
             return res.status(400).json({
-                message: 'Features must be an array with up to 5 items.',
-            });
-        }
-
-        // Validate app_design (required field)
-        if (!app_design) {
-            return res.status(400).json({
-                message: 'App design selection is required.',
+                message: 'Features must be a non-empty array.',
             });
         }
 
@@ -543,14 +536,12 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
         const result = await pool.query(
             `
             UPDATE apps 
-            SET features = $1, app_design = $2, customization = $3 
-            WHERE id = $4 
+            SET features = $1
+            WHERE id = $2 
             RETURNING *;
             `,
             [
                 features.join(','), // Store as a comma-separated string
-                app_design,
-                customization || null, // Allow null for optional customization
                 req.userId,
             ]
         );
@@ -574,6 +565,7 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
         });
     }
 });
+
 
 // Route: Login
 app.post('/api/login', async (req, res) => {
