@@ -525,10 +525,10 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
     try {
         const { features } = req.body;
 
-        // Validate features (must be an array with at least 1 item and no limit)
+        // Validate features (must be an array and not empty)
         if (!Array.isArray(features) || features.length === 0) {
             return res.status(400).json({
-                message: 'Features must be an array with at least 1 item.',
+                message: 'Features must be an array with at least one item.',
             });
         }
 
@@ -541,7 +541,7 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
             RETURNING *;
             `,
             [
-                features.join(','), // Store as a comma-separated string
+                features.join(','), // Store features as a comma-separated string
                 req.userId,
             ]
         );
@@ -565,6 +565,7 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
         });
     }
 });
+
 
 
 
