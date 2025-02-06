@@ -525,10 +525,10 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
     try {
         const { features } = req.body;
 
-        // Validate features (must be an array)
-        if (!Array.isArray(features)) {
+        // Ensure features is provided and is an array
+        if (!features || !Array.isArray(features)) {
             return res.status(400).json({
-                message: 'Features must be an array.',
+                message: 'Features must be a valid array.',
             });
         }
 
@@ -565,6 +565,8 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
         });
     }
 });
+
+
 
 
 
