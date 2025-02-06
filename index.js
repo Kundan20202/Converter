@@ -525,11 +525,10 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
     try {
         const { features } = req.body;
 
-        // Ensure features is provided and is an array
-        if (!features || !Array.isArray(features)) {
-            console.error("Invalid features input:", req.body); // Debugging log
+        // Validate features (must be an array with at least 1 item and no limit)
+        if (!Array.isArray(features) || features.length === 0) {
             return res.status(400).json({
-                message: 'Features must be a valid array.',
+                message: 'Features must be an array with at least 1 item.',
             });
         }
 
@@ -537,7 +536,7 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
         const result = await pool.query(
             `
             UPDATE apps 
-            SET features = $1
+            SET features = $1 
             WHERE id = $2 
             RETURNING *;
             `,
@@ -566,6 +565,7 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
         });
     }
 });
+
 
 
 
