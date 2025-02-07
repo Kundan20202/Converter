@@ -523,29 +523,24 @@ app.get('/api/get-icons', verifyToken, async (req, res) => {
 // Route: Update Features, App Design, and Customization
 app.post('/api/update-preferences', verifyToken, async (req, res) => {
     try {
-        // Log the request body to debug the issue
-        console.log(req.body);
-
         const { features } = req.body;
 
-        // Validate features (must be an array and not empty)
+        // Validate features (must be a non-empty array)
         if (!Array.isArray(features) || features.length === 0) {
             return res.status(400).json({
-                message: 'Features must be an array with at least one item.',
+                message: 'Features must be a non-empty array.',
             });
         }
 
-        // Update the database with features only (no app_design, no customization)
+        // Update the database
         const result = await pool.query(
-            `
-            UPDATE apps 
-            SET features = $1 
-            WHERE id = $2 
-            RETURNING *;
-            `,
+            `UPDATE apps 
+             SET features = $1 
+             WHERE id = $2 
+             RETURNING *;`,
             [
-                features.join(','), // Store features as a comma-separated string
-                req.userId, // Assuming req.userId comes from your verifyToken middleware
+                features.join(','), // Store as a comma-separated string
+                req.userId,
             ]
         );
 
@@ -556,7 +551,6 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
             });
         }
 
-        // Successfully updated preferences
         res.status(200).json({
             message: 'Preferences updated successfully!',
             user: result.rows[0], // Returning the updated user data
