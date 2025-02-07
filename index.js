@@ -523,7 +523,11 @@ app.get('/api/get-icons', verifyToken, async (req, res) => {
 // Route: Update Features, App Design, and Customization
 app.post('/api/update-preferences', verifyToken, async (req, res) => {
     try {
+        console.log('Received body:', req.body); // Log the full request body
+
         const { features } = req.body;
+
+        console.log('Extracted features:', features); // Log extracted features
 
         // Validate features (must be a non-empty array)
         if (!Array.isArray(features) || features.length === 0) {
@@ -544,7 +548,6 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
             ]
         );
 
-        // Check if a row was updated
         if (result.rowCount === 0) {
             return res.status(400).json({
                 message: 'No updates were made. User may not exist.',
@@ -553,7 +556,7 @@ app.post('/api/update-preferences', verifyToken, async (req, res) => {
 
         res.status(200).json({
             message: 'Preferences updated successfully!',
-            user: result.rows[0], // Returning the updated user data
+            user: result.rows[0],
         });
     } catch (error) {
         console.error('Error updating preferences:', error);
