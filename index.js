@@ -1,6 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import paypal from 'paypal-rest-sdk';
+import paypal from '@paypal/paypal-server-sdk';
 import pkg from 'pg';
 import fs from 'fs';
 import path from 'path';
