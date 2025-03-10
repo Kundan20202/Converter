@@ -5,26 +5,32 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-  "start": "node index.js",
-  "dev": "nodemon index.js",
-  "build:eas": "./node_modules/.bin/eas build",
-  "test": "echo \"Error: no test specified\" && exit 1",
-  "postinstall": "npm install -g eas-cli@14.1.0 && eas --version"
-},
-  "keywords": ["Node.js", "Express", "EAS CLI", "AWS S3", "Backend"],
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "build:eas": "./node_modules/.bin/eas build",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "npm install -g eas-cli@14.1.0 && eas --version"
+  },
+  "keywords": [
+    "Node.js",
+    "Express",
+    "EAS CLI",
+    "AWS S3",
+    "Backend"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.50.0",
     "axios": "^1.5.0",
-   "paypal-rest-sdk": "^1.8.1",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.21.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "jsonwebtoken": "^8.5.1",
     "multer": "^1.4.5-lts.1",
+    "paypal-rest-sdk": "^1.8.1",
     "pg": "^8.13.1",
     "winston": "^3.8.2"
   },
