@@ -963,45 +963,50 @@ app.post('/api/paypal/create-payment', verifyToken, async (req, res) => {
 
 // Execute Payment 
 app.post('/api/paypal/execute-payment', verifyToken, async (req, res) => {
-    const { paymentId, payerId } = req.body;
+    try {
+        const { paymentId, payerId } = req.body;
 
-    const execute_payment_json = {
-        payer_id: payerId
-    };
+        const execute_payment_json = { payer_id: payerId };
 
-    paypal.payment.execute(paymentId, execute_payment_json, (error, payment) => {
-        if (error) {
-            console.error(error);
-            return res.status(500).json({ success: false, message: 'Payment execution failed', error: error.message });
-        } else {
-            if (payment.state === 'approved') {
-                // Extract necessary details
-                const userEmail = payment.payer.payer_info.email;
-                const paymentAmount = payment.transactions[0].amount.total;
-                const currency = payment.transactions[0].amount.currency;
-                const paymentStatus = payment.state;
-                const subscriptionId = payment.id;
-                const planId = payment.transactions[0].related_resources?.[0]?.sale?.id || null;
+        paypal.payment.execute(paymentId, execute_payment_json, async (error, payment) => {
+            if (error) {
+                console.error(error);
+                return res.status(500).json({ success: false, message: 'Payment execution failed', error: error.message });
+            } else {
+                if (payment.state === 'approved') {
+                    // Extract necessary details
+                    const userEmail = payment.payer.payer_info.email;
+                    const paymentAmount = payment.transactions[0].amount.total;
+                    const currency = payment.transactions[0].amount.currency;
+                    const paymentStatus = payment.state;
+                    const subscriptionId = payment.id;
+                    const planId = payment.transactions[0].related_resources?.[0]?.sale?.id || null;
 
-                // Store payment in database
-                const insertQuery = `
-                    INSERT INTO payments (user_id, email, amount, currency, status, subscription_id, plan_id)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    RETURNING id;
-                `;
+                    // Store payment in database
+                    const insertQuery = `
+                        INSERT INTO payments (user_id, email, amount, currency, status, subscription_id, plan_id)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        RETURNING id;
+                    `;
 
-                try {
-                    const result = await pool.query(insertQuery, [req.userId, userEmail, paymentAmount, currency, paymentStatus, subscriptionId, planId]);
-                    console.log("Payment recorded in DB, ID:", result.rows[0].id);
-                } catch (err) {
-                    console.error("DB Insertion Error:", err);
+                    try {
+                        const result = await pool.query(insertQuery, [req.userId, userEmail, paymentAmount, currency, paymentStatus, subscriptionId, planId]);
+                        console.log("Payment recorded in DB, ID:", result.rows[0].id);
+                    } catch (dbError) {
+                        console.error("DB Insertion Error:", dbError);
+                        return res.status(500).json({ success: false, message: "Database error", error: dbError.message });
+                    }
+
+                    return res.json({ success: true, message: 'Payment successful', payment });
                 }
-
-                return res.json({ success: true, message: 'Payment successful', payment });
             }
-        }
-    });
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Server error", error: err.message });
+    }
 });
+
 
 
 
