@@ -16,6 +16,14 @@ CREATE TABLE IF NOT EXISTS apps (
     features TEXT DEFAULT NULL,
     app_design TEXT DEFAULT NULL,
     app_url TEXT,
+     -- Subscription fields
+    paypal_subscription_id VARCHAR(255) UNIQUE,  -- Stores PayPal Subscription ID
+    plan_id VARCHAR(255),                         -- Stores PayPal Plan ID (monthly/annual)
+    subscription_status VARCHAR(50) DEFAULT 'Pending', -- Active, Cancelled, Failed, etc.
+    start_date TIMESTAMP DEFAULT NULL,            -- When the subscription starts
+    next_billing_date TIMESTAMP DEFAULT NULL,     -- When the next payment is due
+    last_payment_date TIMESTAMP DEFAULT NULL,     -- When the last payment was made
+    cancel_date TIMESTAMP DEFAULT NULL,  
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
