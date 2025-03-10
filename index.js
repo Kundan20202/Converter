@@ -1,5 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import paypal from 'paypal-rest-sdk';
 import pkg from 'pg';
 import fs from 'fs';
 import path from 'path';
@@ -49,6 +50,18 @@ const pool = new Pool({
     ? { rejectUnauthorized: false }
     : false,
 });
+
+
+
+
+
+// Configure PayPal
+paypal.configure({
+    mode: 'sandbox', // Change to 'live' for production
+    client_id: process.env.PAYPAL_CLIENT_ID,
+    client_secret: process.env.PAYPAL_SECRET
+});
+
 
 
 // Create the `apps` table if it doesn't exist
@@ -905,6 +918,90 @@ app.post('/generate-app', async (req, res) => {
 });
 
 
+
+
+
+
+
+
+
+// Create Paypal Payment
+app.post('/api/paypal/create-payment', verifyToken, async (req, res) => {
+    const { amount, currency = 'USD' } = req.body;
+
+    const payment = {
+        intent: 'sale',
+        payer: {
+            payment_method: 'paypal'
+        },
+        transactions: [{
+            amount: {
+                total: amount,
+                currency: currency
+            },
+            description: 'AppForge Subscription'
+        }],
+        redirect_urls: {
+            return_url: `${process.env.FRONTEND_URL}/success`,
+            cancel_url: `${process.env.FRONTEND_URL}/cancel`
+        }
+    };
+
+    paypal.payment.create(payment, (error, payment) => {
+        if (error) {
+            console.error(error);
+            return res.status(500).json({ success: false, message: 'Payment creation failed', error: error.message });
+        } else {
+            const approvalUrl = payment.links.find(link => link.rel === 'approval_url').href;
+            res.json({ success: true, approvalUrl });
+        }
+    });
+});
+
+
+
+
+// Execute Payment 
+app.post('/api/paypal/execute-payment', verifyToken, async (req, res) => {
+    const { paymentId, payerId } = req.body;
+
+    const execute_payment_json = {
+        payer_id: payerId
+    };
+
+    paypal.payment.execute(paymentId, execute_payment_json, (error, payment) => {
+        if (error) {
+            console.error(error);
+            return res.status(500).json({ success: false, message: 'Payment execution failed', error: error.message });
+        } else {
+            if (payment.state === 'approved') {
+                // Extract necessary details
+                const userEmail = payment.payer.payer_info.email;
+                const paymentAmount = payment.transactions[0].amount.total;
+                const currency = payment.transactions[0].amount.currency;
+                const paymentStatus = payment.state;
+                const subscriptionId = payment.id;
+                const planId = payment.transactions[0].related_resources?.[0]?.sale?.id || null;
+
+                // Store payment in database
+                const insertQuery = `
+                    INSERT INTO payments (user_id, email, amount, currency, status, subscription_id, plan_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    RETURNING id;
+                `;
+
+                try {
+                    const result = await pool.query(insertQuery, [req.userId, userEmail, paymentAmount, currency, paymentStatus, subscriptionId, planId]);
+                    console.log("Payment recorded in DB, ID:", result.rows[0].id);
+                } catch (err) {
+                    console.error("DB Insertion Error:", err);
+                }
+
+                return res.json({ success: true, message: 'Payment successful', payment });
+            }
+        }
+    });
+});
 
 
 
