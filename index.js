@@ -927,6 +927,21 @@ app.post('/generate-app', async (req, res) => {
 
 
 
+app.post("/api/paypal/create-payment2", async (req, res) => {
+    console.log("Raw request body:", req.body); // ✅ Add this to check incoming data
+
+    const { amount, currency = "USD" } = req.body;
+
+    if (!amount) {
+        console.error("Error: Amount is missing in request body!");
+        return res.status(400).json({ success: false, message: "Amount is required." });
+    }
+
+    res.json({ success: true, message: "Amount received", amount, currency });
+});
+
+
+
 // Create Paypal Payment
 app.post('/api/paypal/create-payment', async (req, res) => {
     const { amount, currency = 'USD' } = req.body;
