@@ -930,7 +930,7 @@ app.post('/generate-app', async (req, res) => {
 // Create Paypal Payment
 app.post('/api/paypal/create-payment', async (req, res) => {
     const { amount, currency = 'USD' } = req.body;
-
+const numericAmount = parseFloat(amount);
   if (!amount) {
     console.error("Error: Amount is missing in request body!");
     return res.status(400).json({ success: false, message: "Amount is required." });
