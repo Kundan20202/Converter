@@ -928,8 +928,10 @@ app.post('/generate-app', async (req, res) => {
 
 
 // Create Paypal Payment
-app.post('/api/paypal/create-payment', verifyToken, async (req, res) => {
+app.post('/api/paypal/create-payment', async (req, res) => {
     const { amount, currency = 'USD' } = req.body;
+
+    console.log("Received PayPal Payment Request:", { amount, currency });
 
     const payment = {
         intent: 'sale',
@@ -949,12 +951,15 @@ app.post('/api/paypal/create-payment', verifyToken, async (req, res) => {
         }
     };
 
+    console.log("Creating PayPal Payment with:", JSON.stringify(payment, null, 2));
+
     paypal.payment.create(payment, (error, payment) => {
         if (error) {
-            console.error(error);
+            console.error("PayPal API Error:", error.response?.data || error.message);
             return res.status(500).json({ success: false, message: 'Payment creation failed', error: error.message });
         } else {
-            const approvalUrl = payment.links.find(link => link.rel === 'approval_url').href;
+            const approvalUrl = payment.links.find(link => link.rel === 'approval_url')?.href;
+            console.log("Payment created successfully:", approvalUrl);
             res.json({ success: true, approvalUrl });
         }
     });
