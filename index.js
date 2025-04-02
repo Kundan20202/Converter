@@ -374,38 +374,44 @@ app.post('/api/register', async (req, res) => {
   }
 
   try {
-    // Check if email already exists
-    const emailCheckResult = await pool.query('SELECT * FROM apps WHERE email = $1', [email]);
+    console.time("Registration Time");
 
-    if (emailCheckResult.rows.length > 0) {
+    // Run password hashing and email check in parallel
+    console.time("Parallel Execution");
+    const [hashedPassword, emailExists] = await Promise.all([
+      bcrypt.hash(password, 8),
+      pool.query('SELECT EXISTS (SELECT 1 FROM apps WHERE email = $1)', [email])
+    ]);
+    console.timeEnd("Parallel Execution");
+
+    if (emailExists.rows[0].exists) {
       return res.status(400).json({ message: 'Email already exists.' });
     }
 
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Insert the new user into the database
+    console.time("Database Insert");
     const result = await pool.query(
-      `INSERT INTO apps (name, email, website, app_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      `INSERT INTO apps (name, email, website, app_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, website`,
       [name, email, website, 'DefaultAppName', hashedPassword]
     );
+    console.timeEnd("Database Insert");
 
-    // Get the newly created user's data
     const user = result.rows[0];
 
-    // Generate a JWT token with the userId (No expiration to make it a long-lasting token)
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
+    console.time("JWT Token Generation");
+    const token = await new Promise((resolve, reject) => {
+      jwt.sign({ userId: user.id }, process.env.JWT_SECRET, (err, token) => {
+        if (err) reject(err);
+        resolve(token);
+      });
+    });
+    console.timeEnd("JWT Token Generation");
 
-    // Send the response with the token and user details
+    console.timeEnd("Registration Time");
+
     res.status(201).json({
       message: 'Registration successful!',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        website: user.website,
-      },
-      token, // Send the token along with the user data
+      user,
+      token,
     });
 
   } catch (error) {
@@ -413,6 +419,9 @@ app.post('/api/register', async (req, res) => {
     res.status(500).json({ message: 'Registration failed.', error: error.message });
   }
 });
+
+
+
 
 // Route: Update Situation
 app.post('/api/update-situation', verifyToken, async (req, res) => {
