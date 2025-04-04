@@ -38,6 +38,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Ensure subscription_status column exists
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apps' AND column_name = 'subscription_status') THEN
+        ALTER TABLE apps ADD COLUMN subscription_status VARCHAR(50) DEFAULT 'Pending';
+    END IF;
+END $$;
+
 -- Drop the trigger if it exists, then recreate it
 DROP TRIGGER IF EXISTS set_updated_at ON apps;
 
