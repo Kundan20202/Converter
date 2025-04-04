@@ -14,7 +14,6 @@ import winston from "winston";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';  // For verifying PayPal signature
-import { verifyToken } from './middleware/auth.js';  // Ensure token verification
 import { spawn } from 'child_process';
 
 
