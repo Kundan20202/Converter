@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS apps (
     features TEXT DEFAULT NULL,
     app_design TEXT DEFAULT NULL,
     app_url TEXT,
+    
      -- Subscription fields
     paypal_subscription_id VARCHAR(255) UNIQUE,  -- Stores PayPal Subscription ID
     plan_id VARCHAR(255),                         -- Stores PayPal Plan ID (monthly/annual)
