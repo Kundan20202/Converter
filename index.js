@@ -315,6 +315,51 @@ async function getPaypalAccessToken() {
     }
 }
 
+async function verifyWebhookSignature(req) {
+    try {
+        const PAYPAL_API = process.env.PAYPAL_MODE === 'live' 
+            ? 'https://api.paypal.com' 
+            : 'https://api.sandbox.paypal.com';
+
+        // Get OAuth 2.0 Token
+        const { data: tokenData } = await axios.post(`${PAYPAL_API}/v1/oauth2/token`, 
+            'grant_type=client_credentials', {
+                auth: {
+                    username: process.env.PAYPAL_CLIENT_ID,
+                    password: process.env.PAYPAL_SECRET
+                },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+
+        const accessToken = tokenData.access_token;
+
+        // Prepare verification request
+        const verificationBody = {
+            auth_algo: req.headers['paypal-auth-algo'],
+            cert_url: req.headers['paypal-cert-url'],
+            transmission_id: req.headers['paypal-transmission-id'],
+            transmission_sig: req.headers['paypal-transmission-sig'],
+            transmission_time: req.headers['paypal-transmission-time'],
+            webhook_id: process.env.PAYPAL_WEBHOOK_ID, // Your Webhook ID
+            event_body: req.body
+        };
+
+        // Send verification request
+        const { data: verificationResponse } = await axios.post(
+            `${PAYPAL_API}/v1/notifications/verify-webhook-signature`, 
+            verificationBody, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                }
+        });
+
+        return verificationResponse.verification_status === 'SUCCESS';
+    } catch (error) {
+        console.error('❌ PayPal Signature Verification Failed:', error.response?.data || error.message);
+        return false;
+    }
+}
 
 
 
