@@ -13,7 +13,8 @@ import bodyParser from 'body-parser';
 import winston from "winston";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-
+import crypto from 'crypto';  // For verifying PayPal signature
+import { verifyToken } from './middleware/auth.js';  // Ensure token verification
 import { spawn } from 'child_process';
 
 
@@ -227,6 +228,96 @@ const verifyToken = (req, res, next) => {
 export default verifyToken;
 
 
+
+// ✅ Function to update subscription status in DB
+async function updateSubscription(subscriptionId, newStatus) {
+    try {
+        const result = await pool.query(
+            'UPDATE apps SET subscription_status = $1, cancel_date = CASE WHEN $1 = $2 THEN NOW() ELSE NULL END WHERE paypal_subscription_id = $3 RETURNING *',
+            [newStatus, 'Cancelled', subscriptionId]
+        );
+
+        if (result.rowCount > 0) {
+            console.log(`✅ Subscription ${subscriptionId} updated to ${newStatus}`);
+        } else {
+            console.warn(`⚠️ No user found for subscription ${subscriptionId}`);
+        }
+    } catch (error) {
+        console.error('❌ Error updating subscription:', error);
+    }
+}
+
+// ✅ Function to update last payment date
+async function updateLastPayment(subscriptionId) {
+    try {
+        const result = await pool.query(
+            'UPDATE apps SET last_payment_date = NOW() WHERE paypal_subscription_id = $1 RETURNING *',
+            [subscriptionId]
+        );
+
+        if (result.rowCount > 0) {
+            console.log(`✅ Last payment date updated for subscription ${subscriptionId}`);
+        } else {
+            console.warn(`⚠️ No user found for subscription ${subscriptionId}`);
+        }
+    } catch (error) {
+        console.error('❌ Error updating last payment date:', error);
+    }
+}
+async function verifyPaypalSignature(webhookId, body, transmissionId, timestamp, signature, certUrl, authAlgo) {
+    try {
+        const response = await axios.post(
+            'https://api-m.paypal.com/v1/notifications/verify-webhook-signature',
+            {
+                auth_algo: authAlgo,
+                cert_url: certUrl,
+                transmission_id: transmissionId,
+                transmission_sig: signature,
+                transmission_time: timestamp,
+                webhook_id: webhookId,
+                webhook_event: JSON.parse(body),
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${await getPaypalAccessToken()}`,
+                },
+            }
+        );
+
+        return response.data.verification_status === 'SUCCESS';
+    } catch (error) {
+        console.error('❌ PayPal Signature Verification Failed:', error.response?.data || error.message);
+        return false;
+    }
+}
+
+// ✅ Get PayPal Access Token (Needed for Verification)
+async function getPaypalAccessToken() {
+    try {
+        const clientId = process.env.PAYPAL_CLIENT_ID;
+        const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+
+        const response = await axios.post(
+            'https://api-m.paypal.com/v1/oauth2/token',
+            'grant_type=client_credentials',
+            {
+                auth: { username: clientId, password: clientSecret },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            }
+        );
+
+        return response.data.access_token;
+    } catch (error) {
+        console.error('❌ Failed to get PayPal access token:', error);
+        throw new Error('Could not authenticate with PayPal');
+    }
+}
+
+
+
+
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
@@ -238,6 +329,85 @@ app.use((err, req, res, next) => {
   logger.error(`Unhandled error: ${err.message}`);
   res.status(500).send("Internal server error");
 });
+
+
+
+
+// 📌 PayPal Webhook Route
+app.post('/paypal-webhook', async (req, res) => {
+    try {
+        const webhookId = process.env.PAYPAL_WEBHOOK_ID;  // Get from PayPal Developer Dashboard
+        const paypalTransmissionId = req.header('paypal-transmission-id');
+        const paypalTimestamp = req.header('paypal-transmission-time');
+        const paypalSignature = req.header('paypal-transmission-sig');
+        const paypalCertUrl = req.header('paypal-cert-url');
+        const paypalAuthAlgo = req.header('paypal-auth-algo');
+
+        const body = JSON.stringify(req.body);
+
+        // 🔹 STEP 1: Verify PayPal Webhook Signature (Security)
+        const isValid = await verifyPaypalSignature(
+            webhookId,
+            body,
+            paypalTransmissionId,
+            paypalTimestamp,
+            paypalSignature,
+            paypalCertUrl,
+            paypalAuthAlgo
+        );
+
+        if (!isValid) {
+            console.error('🚨 Invalid PayPal webhook signature!');
+            return res.status(400).send('Invalid signature');
+        }
+
+        // 🔹 STEP 2: Process the Webhook Event
+        const eventType = req.body.event_type;
+        const subscriptionId = req.body.resource.id; // PayPal Subscription ID
+        const status = req.body.resource.status; // Subscription status
+
+        console.log(`🔔 Received PayPal Webhook: ${eventType} - ${status}`);
+
+        if (!subscriptionId) {
+            return res.status(400).json({ message: 'Subscription ID missing' });
+        }
+
+        // Handle different PayPal subscription events
+        switch (eventType) {
+            case 'BILLING.SUBSCRIPTION.ACTIVATED':
+                await updateSubscription(subscriptionId, 'Active');
+                break;
+
+            case 'BILLING.SUBSCRIPTION.CANCELLED':
+                await updateSubscription(subscriptionId, 'Cancelled');
+                break;
+
+            case 'BILLING.SUBSCRIPTION.SUSPENDED':
+                await updateSubscription(subscriptionId, 'Suspended');
+                break;
+
+            case 'PAYMENT.SALE.COMPLETED':
+                await updateLastPayment(subscriptionId);
+                break;
+
+            default:
+                console.log(`⚠️ Unhandled PayPal event: ${eventType}`);
+                break;
+        }
+
+        res.sendStatus(200);
+    } catch (error) {
+        console.error('❌ Error handling PayPal webhook:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+
+
+
+
+
+
 
 
 // Route: Test database connection
