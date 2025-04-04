@@ -38,11 +38,42 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Ensure subscription_status column exists
+-- Ensure all missing columns exist in the 'apps' table
 DO $$ 
 BEGIN
+    -- Ensure paypal_subscription_id column exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apps' AND column_name = 'paypal_subscription_id') THEN
+        ALTER TABLE apps ADD COLUMN paypal_subscription_id VARCHAR(255) UNIQUE;
+    END IF;
+
+    -- Ensure plan_id column exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apps' AND column_name = 'plan_id') THEN
+        ALTER TABLE apps ADD COLUMN plan_id VARCHAR(255);
+    END IF;
+
+    -- Ensure subscription_status column exists
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apps' AND column_name = 'subscription_status') THEN
         ALTER TABLE apps ADD COLUMN subscription_status VARCHAR(50) DEFAULT 'Pending';
+    END IF;
+
+    -- Ensure start_date column exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apps' AND column_name = 'start_date') THEN
+        ALTER TABLE apps ADD COLUMN start_date TIMESTAMP DEFAULT NULL;
+    END IF;
+
+    -- Ensure next_billing_date column exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apps' AND column_name = 'next_billing_date') THEN
+        ALTER TABLE apps ADD COLUMN next_billing_date TIMESTAMP DEFAULT NULL;
+    END IF;
+
+    -- Ensure last_payment_date column exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apps' AND column_name = 'last_payment_date') THEN
+        ALTER TABLE apps ADD COLUMN last_payment_date TIMESTAMP DEFAULT NULL;
+    END IF;
+
+    -- Ensure cancel_date column exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apps' AND column_name = 'cancel_date') THEN
+        ALTER TABLE apps ADD COLUMN cancel_date TIMESTAMP DEFAULT NULL;
     END IF;
 END $$;
 
