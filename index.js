@@ -382,73 +382,33 @@ app.use((err, req, res, next) => {
 
 // 📌 PayPal Webhook Route
 app.post('/paypal-webhook', async (req, res) => {
-    try {
-        const webhookId = process.env.PAYPAL_WEBHOOK_ID;  // Get from PayPal Developer Dashboard
-        const paypalTransmissionId = req.header('paypal-transmission-id');
-        const paypalTimestamp = req.header('paypal-transmission-time');
-        const paypalSignature = req.header('paypal-transmission-sig');
-        const paypalCertUrl = req.header('paypal-cert-url');
-        const paypalAuthAlgo = req.header('paypal-auth-algo');
+     try {
+        console.log("🚀 PayPal Webhook Received:", req.body); // Log everything
 
-        const body = JSON.stringify(req.body);
+        // Extract necessary payment details
+        const { event_type, resource } = req.body;
 
-        // 🔹 STEP 1: Verify PayPal Webhook Signature (Security)
-        const isValid = await verifyPaypalSignature(
-            webhookId,
-            body,
-            paypalTransmissionId,
-            paypalTimestamp,
-            paypalSignature,
-            paypalCertUrl,
-            paypalAuthAlgo
-        );
+        if (event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+            const subscriptionId = resource.id;
+            const planId = resource.plan_id;
+            const userEmail = resource.subscriber.email_address;
+            const startDate = resource.start_time;
 
-        if (!isValid) {
-            console.error('🚨 Invalid PayPal webhook signature!');
-            return res.status(400).send('Invalid signature');
+            // Update the database to mark subscription as active
+            await pool.query(
+                'UPDATE apps SET subscription_status = $1, paypal_subscription_id = $2, plan_id = $3, start_date = $4 WHERE email = $5',
+                ['Active', subscriptionId, planId, startDate, userEmail]
+            );
+
+            console.log(`✅ Subscription activated for ${userEmail}`);
         }
 
-        // 🔹 STEP 2: Process the Webhook Event
-        const eventType = req.body.event_type;
-        const subscriptionId = req.body.resource.id; // PayPal Subscription ID
-        const status = req.body.resource.status; // Subscription status
-
-        console.log(`🔔 Received PayPal Webhook: ${eventType} - ${status}`);
-
-        if (!subscriptionId) {
-            return res.status(400).json({ message: 'Subscription ID missing' });
-        }
-
-        // Handle different PayPal subscription events
-        switch (eventType) {
-            case 'BILLING.SUBSCRIPTION.ACTIVATED':
-                await updateSubscription(subscriptionId, 'Active');
-                break;
-
-            case 'BILLING.SUBSCRIPTION.CANCELLED':
-                await updateSubscription(subscriptionId, 'Cancelled');
-                break;
-
-            case 'BILLING.SUBSCRIPTION.SUSPENDED':
-                await updateSubscription(subscriptionId, 'Suspended');
-                break;
-
-            case 'PAYMENT.SALE.COMPLETED':
-                await updateLastPayment(subscriptionId);
-                break;
-
-            default:
-                console.log(`⚠️ Unhandled PayPal event: ${eventType}`);
-                break;
-        }
-
-        res.sendStatus(200);
+        res.sendStatus(200); // Acknowledge webhook
     } catch (error) {
-        console.error('❌ Error handling PayPal webhook:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error('❌ Error handling webhook:', error);
+        res.sendStatus(500);
     }
 });
-
 
 
 
