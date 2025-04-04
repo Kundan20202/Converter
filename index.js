@@ -66,6 +66,7 @@ paypal.configure({
 
 console.log("PayPal Client ID:", process.env.PAYPAL_CLIENT_ID); // Debugging
 console.log("PayPal Secret:", process.env.PAYPAL_SECRET); // Debugging
+console.log("PayPal Webhook ID:", process.env.PAYPAL_WEBHOOK_ID);
 
 
 // Create the `apps` table if it doesn't exist
