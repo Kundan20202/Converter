@@ -382,33 +382,32 @@ app.use((err, req, res, next) => {
 
 // 📌 PayPal Webhook Route
 app.post('/paypal-webhook', async (req, res) => {
-     try {
-        console.log("🚀 PayPal Webhook Received:", req.body); // Log everything
+    try {
+        console.log("🚀 PayPal Webhook Received:", req.body);
 
-        // Extract necessary payment details
         const { event_type, resource } = req.body;
 
         if (event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
             const subscriptionId = resource.id;
             const planId = resource.plan_id;
-            const userEmail = resource.subscriber.email_address;
             const startDate = resource.start_time;
 
-            // Update the database to mark subscription as active
+            // Update the database using PayPal Subscription ID instead of email
             await pool.query(
-                'UPDATE apps SET subscription_status = $1, paypal_subscription_id = $2, plan_id = $3, start_date = $4 WHERE email = $5',
-                ['Active', subscriptionId, planId, startDate, userEmail]
+                'UPDATE apps SET subscription_status = $1, plan_id = $2, start_date = $3 WHERE paypal_subscription_id = $4',
+                ['Active', planId, startDate, subscriptionId]
             );
 
-            console.log(`✅ Subscription activated for ${userEmail}`);
+            console.log(`✅ Subscription activated for Subscription ID: ${subscriptionId}`);
         }
 
-        res.sendStatus(200); // Acknowledge webhook
+        res.sendStatus(200);
     } catch (error) {
         console.error('❌ Error handling webhook:', error);
         res.sendStatus(500);
     }
 });
+
 
 
 
