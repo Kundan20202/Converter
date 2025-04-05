@@ -382,42 +382,46 @@ app.use((err, req, res, next) => {
 
 // 📌 PayPal Webhook Route
 app.post('/paypal-webhook', async (req, res) => {
-    const { event_type, resource } = req.body;
-    console.log("🚀 PayPal Webhook Received:", req.body);
-
     try {
-        switch(event_type) {
-            case 'BILLING.SUBSCRIPTION.CREATED':
-                console.log("Subscription created:", resource.id);
-                // Optional: Insert placeholder in DB if needed
-                break;
+        const { event_type, resource } = req.body;
+        const subscriptionId = resource.id;
+        
+        if(event_type === 'BILLING.SUBSCRIPTION.CREATED') {
+            console.log(`Subscription Created for ID: ${subscriptionId}`);
+            await pool.query(`
+                INSERT INTO apps (paypal_subscription_id, subscription_status)
+                VALUES ($1, $2)
+                ON CONFLICT (paypal_subscription_id) DO NOTHING
+            `, [subscriptionId, 'Pending']);
+        }
 
-            case 'BILLING.SUBSCRIPTION.ACTIVATED':
-                await pool.query(
-                    'UPDATE apps SET subscription_status = $1, plan_id = $2, start_date = $3 WHERE paypal_subscription_id = $4',
-                    ['Active', resource.plan_id, resource.start_time, resource.id]
-                );
-                console.log("Subscription Activated:", resource.id);
-                break;
+        if(event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+            await pool.query(`
+                UPDATE apps SET subscription_status = $1, plan_id = $2, start_date = $3
+                WHERE paypal_subscription_id = $4
+            `, ['Active', resource.plan_id, resource.start_time, subscriptionId]);
+        }
 
-            case 'BILLING.SUBSCRIPTION.CANCELLED':
-                await pool.query(
-                    'UPDATE apps SET subscription_status = $1 WHERE paypal_subscription_id = $2',
-                    ['Cancelled', resource.id]
-                );
-                console.log("Subscription Cancelled:", resource.id);
-                break;
+        if(event_type === 'BILLING.SUBSCRIPTION.CANCELLED') {
+            await pool.query(`
+                UPDATE apps SET subscription_status = $1, cancel_date = NOW()
+                WHERE paypal_subscription_id = $2
+            `, ['Cancelled', subscriptionId]);
+        }
 
-            // Add Suspended, Expired similarly
+        if(event_type === 'PAYMENT.SALE.COMPLETED') {
+            await pool.query(`
+                UPDATE apps SET last_payment_date = NOW()
+                WHERE paypal_subscription_id = $1
+            `, [resource.billing_agreement_id]); // For payment completed event
         }
 
         res.sendStatus(200);
-    } catch (error) {
-        console.error('Webhook Error:', error);
+    } catch (err) {
+        console.error(err);
         res.sendStatus(500);
     }
 });
-
 
 
 
