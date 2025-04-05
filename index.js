@@ -408,7 +408,20 @@ app.post('/paypal-webhook', async (req, res) => {
                 console.log("Subscription Cancelled:", resource.id);
                 break;
 
-            // Add Suspended, Expired similarly
+            case 'BILLING.SUBSCRIPTION.SUSPENDED':
+    await pool.query(
+        'UPDATE apps SET subscription_status = $1 WHERE paypal_subscription_id = $2',
+        ['Suspended', resource.id]
+    );
+    break;
+
+case 'BILLING.SUBSCRIPTION.EXPIRED':
+    await pool.query(
+        'UPDATE apps SET subscription_status = $1 WHERE paypal_subscription_id = $2',
+        ['Expired', resource.id]
+    );
+    break;
+
         }
 
         res.sendStatus(200);
