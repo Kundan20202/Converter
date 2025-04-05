@@ -384,7 +384,7 @@ app.use((err, req, res, next) => {
 app.post('/paypal-webhook', async (req, res) => {
     try {
         console.log("🚀 PayPal Webhook Received:", req.body);
-
+        
         const { event_type, resource } = req.body;
 
         if (event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
@@ -392,18 +392,29 @@ app.post('/paypal-webhook', async (req, res) => {
             const planId = resource.plan_id;
             const startDate = resource.start_time;
 
-            // Update the database using PayPal Subscription ID instead of email
-            await pool.query(
-                'UPDATE apps SET subscription_status = $1, plan_id = $2, start_date = $3 WHERE paypal_subscription_id = $4',
-                ['Active', planId, startDate, subscriptionId]
+            const { rows } = await pool.query(
+                'SELECT * FROM apps WHERE paypal_subscription_id = $1',
+                [subscriptionId]
             );
 
-            console.log(`✅ Subscription activated for Subscription ID: ${subscriptionId}`);
+            if (rows.length === 0) {
+                await pool.query(
+                    'INSERT INTO apps (paypal_subscription_id, subscription_status, plan_id, start_date) VALUES ($1, $2, $3, $4)',
+                    [subscriptionId, 'Active', planId, startDate]
+                );
+                console.log(`🆕 Inserted New Subscription: ${subscriptionId}`);
+            } else {
+                await pool.query(
+                    'UPDATE apps SET subscription_status = $1, plan_id = $2, start_date = $3 WHERE paypal_subscription_id = $4',
+                    ['Active', planId, startDate, subscriptionId]
+                );
+                console.log(`✅ Updated Existing Subscription: ${subscriptionId}`);
+            }
         }
 
         res.sendStatus(200);
     } catch (error) {
-        console.error('❌ Error handling webhook:', error);
+        console.error('❌ Webhook Error:', error);
         res.sendStatus(500);
     }
 });
