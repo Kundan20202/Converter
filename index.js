@@ -382,39 +382,38 @@ app.use((err, req, res, next) => {
 
 // 📌 PayPal Webhook Route
 app.post('/paypal-webhook', async (req, res) => {
+    const { event_type, resource } = req.body;
+    console.log("🚀 PayPal Webhook Received:", req.body);
+
     try {
-        console.log("🚀 PayPal Webhook Received:", req.body);
-        
-        const { event_type, resource } = req.body;
+        switch(event_type) {
+            case 'BILLING.SUBSCRIPTION.CREATED':
+                console.log("Subscription created:", resource.id);
+                // Optional: Insert placeholder in DB if needed
+                break;
 
-        if (event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
-            const subscriptionId = resource.id;
-            const planId = resource.plan_id;
-            const startDate = resource.start_time;
-
-            const { rows } = await pool.query(
-                'SELECT * FROM apps WHERE paypal_subscription_id = $1',
-                [subscriptionId]
-            );
-
-            if (rows.length === 0) {
-                await pool.query(
-                    'INSERT INTO apps (paypal_subscription_id, subscription_status, plan_id, start_date) VALUES ($1, $2, $3, $4)',
-                    [subscriptionId, 'Active', planId, startDate]
-                );
-                console.log(`🆕 Inserted New Subscription: ${subscriptionId}`);
-            } else {
+            case 'BILLING.SUBSCRIPTION.ACTIVATED':
                 await pool.query(
                     'UPDATE apps SET subscription_status = $1, plan_id = $2, start_date = $3 WHERE paypal_subscription_id = $4',
-                    ['Active', planId, startDate, subscriptionId]
+                    ['Active', resource.plan_id, resource.start_time, resource.id]
                 );
-                console.log(`✅ Updated Existing Subscription: ${subscriptionId}`);
-            }
+                console.log("Subscription Activated:", resource.id);
+                break;
+
+            case 'BILLING.SUBSCRIPTION.CANCELLED':
+                await pool.query(
+                    'UPDATE apps SET subscription_status = $1 WHERE paypal_subscription_id = $2',
+                    ['Cancelled', resource.id]
+                );
+                console.log("Subscription Cancelled:", resource.id);
+                break;
+
+            // Add Suspended, Expired similarly
         }
 
         res.sendStatus(200);
     } catch (error) {
-        console.error('❌ Webhook Error:', error);
+        console.error('Webhook Error:', error);
         res.sendStatus(500);
     }
 });
