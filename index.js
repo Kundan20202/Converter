@@ -380,6 +380,27 @@ app.use((err, req, res, next) => {
 
 
 
+
+
+app.post('/save-subscription', verifyToken, async (req, res) => {
+    const { subscriptionID, planID } = req.body;
+
+    if (!subscriptionID || !planID) {
+        return res.status(400).json({ message: 'Missing data' });
+    }
+
+    try {
+        await pool.query(
+            'INSERT INTO subscriptions (user_id, paypal_subscription_id, plan_id, subscription_status, created_at) VALUES ($1, $2, $3, $4, NOW())',
+            [req.userId, subscriptionID, planID, 'Active']
+        );
+
+        res.status(200).json({ message: 'Subscription Saved Successfully' });
+    } catch (error) {
+        console.error('Error saving subscription:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
 // 📌 PayPal Webhook Route
 app.post('/paypal-webhook', async (req, res) => {
     const { event_type, resource } = req.body;
